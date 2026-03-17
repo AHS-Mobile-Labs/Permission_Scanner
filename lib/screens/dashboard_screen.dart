@@ -31,7 +31,7 @@ class DashboardScreen extends ConsumerWidget {
                     StatCard(
                       title: 'Total Apps',
                       count: stats.totalApps,
-                      color: AppColors.primary,
+                      color: const Color.fromRGBO(26, 115, 232, 1),
                     ),
                     StatCard(
                       title: 'Safe Apps',
