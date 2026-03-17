@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_scanner/services/app_providers.dart';
 import 'package:permission_scanner/utils/app_colors.dart';
 import 'package:permission_scanner/widgets/app_card.dart';
+import 'package:permission_scanner/widgets/filter_sort_bar.dart';
 import 'package:permission_scanner/screens/app_detail_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -13,11 +14,11 @@ class HomeScreen extends ConsumerWidget {
     final filteredAppsAsync = ref.watch(filteredAppsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text('Permission Scanner'), elevation: 0),
+      appBar: AppBar(title: const Text('Permission Scanner'), elevation: 0),
       body: Column(
         children: [
           Padding(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             child: SearchBar(
               onChanged: (value) {
                 ref.read(searchQueryProvider.notifier).state = value;
@@ -26,11 +27,12 @@ class HomeScreen extends ConsumerWidget {
               hintText: 'Search apps...',
             ),
           ),
+          const FilterSortBar(),
           Expanded(
             child: filteredAppsAsync.when(
               data: (apps) {
                 if (apps.isEmpty) {
-                  return Center(child: Text('No apps found'));
+                  return const Center(child: Text('No apps found'));
                 }
                 return ListView.builder(
                   itemCount: apps.length,
@@ -50,7 +52,7 @@ class HomeScreen extends ConsumerWidget {
                   },
                 );
               },
-              loading: () => Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stack) => Center(child: Text('Error: $error')),
             ),
           ),

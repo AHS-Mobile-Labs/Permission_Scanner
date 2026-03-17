@@ -4,8 +4,20 @@ import 'package:permission_scanner/screens/home_screen.dart';
 import 'package:permission_scanner/screens/permission_info_screen.dart';
 import 'package:permission_scanner/screens/dashboard_screen.dart';
 import 'package:permission_scanner/utils/app_colors.dart';
+import 'package:permission_scanner/services/notification_service.dart';
+import 'package:permission_scanner/services/cache_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize notification service
+  final notificationService = NotificationService();
+  await notificationService.init();
+
+  // Initialize cache service
+  final cacheService = CacheService();
+  await cacheService.init();
+
   runApp(const ProviderScope(child: MyApp()));
 }
 
