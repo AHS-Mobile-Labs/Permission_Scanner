@@ -8,40 +8,52 @@ class FilterSortBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sortOption = ref.watch(sortOptionProvider);
-    final riskFilter = ref.watch(riskFilterProvider);
+    final appType = ref.watch(appTypeProvider);
 
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [
+          // App Type Tabs
+          Row(
+            children: [
+              Expanded(
+                child: SegmentedButton<AppType>(
+                  segments: const [
+                    ButtonSegment(
+                      value: AppType.userApps,
+                      label: Text('📥 User Apps'),
+                    ),
+                    ButtonSegment(
+                      value: AppType.systemApps,
+                      label: Text('⚙️ System'),
+                    ),
+                    ButtonSegment(
+                      value: AppType.unknownSource,
+                      label: Text('🔓 Unknown'),
+                    ),
+                  ],
+                  selected: {appType},
+                  onSelectionChanged: (value) {
+                    ref.read(appTypeProvider.notifier).state = value.first;
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           // Sort Dropdown
           DropdownButton<SortOption>(
             isExpanded: true,
             value: sortOption,
             items: [
               DropdownMenuItem(
-                value: SortOption.nameAsc,
-                child: const Text('📝 Sort by Name (A-Z)'),
+                value: SortOption.name,
+                child: const Text('📝 Sort by Name'),
               ),
               DropdownMenuItem(
-                value: SortOption.nameDesc,
-                child: const Text('📝 Sort by Name (Z-A)'),
-              ),
-              DropdownMenuItem(
-                value: SortOption.riskHigh,
-                child: const Text('🔴 High Risk First'),
-              ),
-              DropdownMenuItem(
-                value: SortOption.riskLow,
-                child: const Text('🟢 Safe First'),
-              ),
-              DropdownMenuItem(
-                value: SortOption.privacyHigh,
-                child: const Text('🛡️ High Privacy Score'),
-              ),
-              DropdownMenuItem(
-                value: SortOption.privacyLow,
-                child: const Text('⚠️ Low Privacy Score'),
+                value: SortOption.risk,
+                child: const Text('🔴 Sort by Risk Level'),
               ),
             ],
             onChanged: (value) {
@@ -49,53 +61,6 @@ class FilterSortBar extends ConsumerWidget {
                 ref.read(sortOptionProvider.notifier).state = value;
               }
             },
-          ),
-          const SizedBox(height: 12),
-          // Risk Level Filter
-          Wrap(
-            spacing: 8,
-            children: [
-              FilterChip(
-                label: const Text('All'),
-                selected: riskFilter == PermissionFilter.all,
-                onSelected: (selected) {
-                  if (selected) {
-                    ref.read(riskFilterProvider.notifier).state =
-                        PermissionFilter.all;
-                  }
-                },
-              ),
-              FilterChip(
-                label: const Text('🟢 Safe'),
-                selected: riskFilter == PermissionFilter.safe,
-                onSelected: (selected) {
-                  if (selected) {
-                    ref.read(riskFilterProvider.notifier).state =
-                        PermissionFilter.safe;
-                  }
-                },
-              ),
-              FilterChip(
-                label: const Text('🟡 Medium'),
-                selected: riskFilter == PermissionFilter.medium,
-                onSelected: (selected) {
-                  if (selected) {
-                    ref.read(riskFilterProvider.notifier).state =
-                        PermissionFilter.medium;
-                  }
-                },
-              ),
-              FilterChip(
-                label: const Text('🔴 Dangerous'),
-                selected: riskFilter == PermissionFilter.dangerous,
-                onSelected: (selected) {
-                  if (selected) {
-                    ref.read(riskFilterProvider.notifier).state =
-                        PermissionFilter.dangerous;
-                  }
-                },
-              ),
-            ],
           ),
         ],
       ),

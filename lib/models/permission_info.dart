@@ -4,6 +4,7 @@ class PermissionInfo {
   final String description;
   final String group;
   final bool isDangerous;
+  final bool isDeveloperOnly;
 
   const PermissionInfo({
     required this.name,
@@ -11,5 +12,6 @@ class PermissionInfo {
     required this.description,
     required this.group,
     required this.isDangerous,
+    this.isDeveloperOnly = false,
   });
 }

@@ -153,3 +153,17 @@ const List<String> dangerousPermissions = [
   'android.permission.CALL_PHONE',
   'android.permission.USE_SIP',
 ];
+
+/// Developer-only permissions that are hidden by default
+const List<String> developerOnlyPermissions = [
+  'android.permission.AD_SERVICES_CONFIG',
+  'com.android.permission.INSTALL_APPS',
+  'android.permission.QUERY_ALL_PACKAGES',
+  'android.permission.MANAGE_EXTERNAL_STORAGE',
+  'android.permission.BIND_ACCESSIBILITY_SERVICE',
+  'android.permission.CHANGE_NETWORK_STATE',
+  'android.permission.CHANGE_WIFI_STATE',
+  'android.permission.DELETE_PACKAGES',
+  'android.permission.SYSTEM_ALERT_WINDOW',
+  'android.permission.USE_CREDENTIALS',
+];

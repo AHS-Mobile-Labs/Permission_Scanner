@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_scanner/models/app_info.dart';
 import 'package:permission_scanner/services/permission_justification_service.dart';
 import 'package:permission_scanner/services/cache_service.dart';
+import 'package:permission_scanner/utils/permission_database.dart';
 
 class PermissionVerificationDialog extends ConsumerStatefulWidget {
   final AppInfo app;
@@ -30,21 +31,62 @@ class _PermissionVerificationDialogState
     selectedCapabilities = widget.cacheService.getAppCapabilities(
       widget.app.packageName,
     );
+
+    // Get only relevant capabilities (those with dangerous permissions that the app has)
+    final relevantCapabilities = _getRelevantCapabilities();
     capabilitySelection = {
-      for (final cap in PermissionJustificationService.getAllCapabilities())
+      for (final cap in relevantCapabilities)
         cap: selectedCapabilities.contains(cap),
     };
   }
 
+  /// Get only capabilities that have dangerous permissions the app actually requests
+  List<String> _getRelevantCapabilities() {
+    final relevantCaps = <String>[];
+
+    for (final capability
+        in PermissionJustificationService.getAllCapabilities()) {
+      final requiredPerms =
+          PermissionJustificationService.getPermissionsForCapability(
+            capability,
+          );
+
+      // Skip if app doesn't have any of these permissions
+      if (!requiredPerms.any((perm) => widget.app.permissions.contains(perm))) {
+        continue;
+      }
+
+      // Only include if it has at least one dangerous permission
+      if (requiredPerms.any((perm) => dangerousPermissions.contains(perm))) {
+        relevantCaps.add(capability);
+      }
+    }
+
+    return relevantCaps;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final analysis = PermissionJustificationService.analyzePermissions(
-      widget.app.permissions,
-      selectedCapabilities,
-    );
+    final relevantCapabilities = _getRelevantCapabilities();
+
+    // If no relevant capabilities, show message
+    if (relevantCapabilities.isEmpty) {
+      return AlertDialog(
+        title: Text('${widget.app.appName}'),
+        content: const Text(
+          'This app only uses safe permissions. No justification needed.',
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, []),
+            child: const Text('OK'),
+          ),
+        ],
+      );
+    }
 
     return AlertDialog(
-      title: Text('Verify ${widget.app.appName}'),
+      title: Text('${widget.app.appName}'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -55,7 +97,7 @@ class _PermissionVerificationDialogState
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             const SizedBox(height: 12),
-            ...PermissionJustificationService.getAllCapabilities().map(
+            ...relevantCapabilities.map(
               (capability) => CheckboxListTile(
                 dense: true,
                 title: Text(capability),
@@ -71,64 +113,6 @@ class _PermissionVerificationDialogState
                 },
               ),
             ),
-            const SizedBox(height: 16),
-            Card(
-              color: Colors.blue.shade50,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '✅ Justified Permissions: ${analysis['justifiedCount']}',
-                      style: const TextStyle(
-                        color: Colors.green,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '⚠️ Unjustified Permissions: ${analysis['unjustifiedCount']}',
-                      style: const TextStyle(
-                        color: Colors.orange,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Justification Score: ${analysis['justificationPercentage']}%',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (analysis['unjustifiedCount'] > 0) ...[
-              const SizedBox(height: 12),
-              ExpansionTile(
-                title: const Text('Unjustified Permissions'),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        for (final perm
-                            in analysis['unjustifiedPermissions']
-                                as List<String>)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Text(
-                              '• ${perm.replaceAll('android.permission.', '')}',
-                              style: TextStyle(color: Colors.red.shade700),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
           ],
         ),
       ),

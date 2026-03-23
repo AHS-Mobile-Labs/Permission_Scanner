@@ -36,6 +36,8 @@ class PermissionAnalyzer {
       riskLevel: riskLevel,
       dangerousPermissionCount: dangerousCount,
       privacyScore: privacyScore,
+      isSystemApp: baseInfo.isSystemApp,
+      installSource: baseInfo.installSource,
     );
   }
 

@@ -20,6 +20,7 @@ class AppCard extends StatelessWidget {
           padding: EdgeInsets.all(12),
           child: Row(
             children: [
+              // App Icon - placeholder since icons are loaded asynchronously
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Container(

@@ -6,6 +6,8 @@ class AppInfo {
   final RiskLevel riskLevel;
   final int dangerousPermissionCount;
   final int privacyScore;
+  final bool isSystemApp;
+  final String installSource; // 'System', 'Play Store', 'Unknown'
 
   AppInfo({
     required this.packageName,
@@ -15,6 +17,8 @@ class AppInfo {
     required this.riskLevel,
     required this.dangerousPermissionCount,
     required this.privacyScore,
+    required this.isSystemApp,
+    required this.installSource,
   });
 
   factory AppInfo.fromJson(Map<String, dynamic> json) {
@@ -27,6 +31,8 @@ class AppInfo {
       riskLevel: RiskLevel.safe,
       dangerousPermissionCount: 0,
       privacyScore: 0,
+      isSystemApp: json['isSystemApp'] as bool? ?? false,
+      installSource: json['installSource'] as String? ?? 'Unknown',
     );
   }
 
@@ -35,6 +41,8 @@ class AppInfo {
     'appName': appName,
     'iconPath': iconPath,
     'permissions': permissions,
+    'isSystemApp': isSystemApp,
+    'installSource': installSource,
   };
 }
 

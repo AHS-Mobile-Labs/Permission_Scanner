@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_scanner/models/app_info.dart';
 import 'package:permission_scanner/utils/app_colors.dart';
@@ -22,6 +24,7 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
   late CacheService cacheService;
   late List<String> appCapabilities;
   late Map<String, dynamic> permissionAnalysis;
+  bool showDeveloperPermissions = false;
 
   @override
   void initState() {
@@ -59,6 +62,20 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
     });
   }
 
+  static Uint8List _decodeBase64Icon(String base64String) {
+    return base64Decode(base64String);
+  }
+
+  List<String> _getFilteredPermissions() {
+    return widget.app.permissions.where((permission) {
+      final isDeveloper = developerOnlyPermissions.contains(permission);
+      if (isDeveloper && !showDeveloperPermissions) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -78,7 +95,23 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Icon(Icons.apps, size: 40, color: AppColors.primary),
+                    child:
+                        widget.app.iconPath != null &&
+                            widget.app.iconPath!.isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.memory(
+                              _decodeBase64Icon(widget.app.iconPath!),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Icon(
+                                    Icons.apps,
+                                    size: 40,
+                                    color: AppColors.primary,
+                                  ),
+                            ),
+                          )
+                        : Icon(Icons.apps, size: 40, color: AppColors.primary),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -212,23 +245,40 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Permissions (${widget.app.permissions.length})',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelLarge?.copyWith(fontSize: 16),
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Permissions (${_getFilteredPermissions().length})',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelLarge?.copyWith(fontSize: 16),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        showDeveloperPermissions = !showDeveloperPermissions;
+                      });
+                    },
+                    icon: Icon(
+                      showDeveloperPermissions
+                          ? Icons.arrow_drop_up
+                          : Icons.arrow_drop_down,
+                    ),
+                    label: const Text('Dev Permissions'),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 12),
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: widget.app.permissions.length,
+              itemCount: _getFilteredPermissions().length,
               itemBuilder: (context, index) {
-                final permissionName = widget.app.permissions[index];
+                final filteredPermissions = _getFilteredPermissions();
+                final permissionName = filteredPermissions[index];
+
                 final permissionInfo = permissionDatabase[permissionName];
                 final isJustified =
                     (permissionAnalysis['justifiedPermissions'] as List<String>)

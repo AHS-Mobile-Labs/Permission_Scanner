@@ -26,6 +26,9 @@ class PermissionScannerService {
         final permissions = List<String>.from(
           appJson['permissions'] as List? ?? [],
         );
+        final isSystem = appJson['isSystemApp'] as bool? ?? false;
+        final installSource = appJson['installSource'] as String? ?? 'Unknown';
+
         return AppInfo(
           packageName: appJson['packageName'] as String,
           appName: appJson['appName'] as String,
@@ -34,6 +37,8 @@ class PermissionScannerService {
           riskLevel: RiskLevel.safe,
           dangerousPermissionCount: 0,
           privacyScore: 100,
+          isSystemApp: isSystem,
+          installSource: installSource,
         );
       }).toList();
     } catch (e) {
