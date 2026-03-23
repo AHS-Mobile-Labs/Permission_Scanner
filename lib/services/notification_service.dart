@@ -19,11 +19,9 @@ class NotificationService {
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
     );
-    const iOSSettings = DarwinInitializationSettings();
 
     const initSettings = InitializationSettings(
       android: androidSettings,
-      iOS: iOSSettings,
     );
 
     await _flutterLocalNotificationsPlugin.initialize(initSettings);
@@ -45,11 +43,8 @@ class NotificationService {
       priority: Priority.high,
     );
 
-    const iOSDetails = DarwinNotificationDetails();
-
     const notificationDetails = NotificationDetails(
       android: androidDetails,
-      iOS: iOSDetails,
     );
 
     await _flutterLocalNotificationsPlugin.show(
@@ -74,11 +69,8 @@ class NotificationService {
       priority: Priority.defaultPriority,
     );
 
-    const iOSDetails = DarwinNotificationDetails();
-
     const notificationDetails = NotificationDetails(
       android: androidDetails,
-      iOS: iOSDetails,
     );
 
     await _flutterLocalNotificationsPlugin.show(
