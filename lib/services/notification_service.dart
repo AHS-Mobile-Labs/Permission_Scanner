@@ -20,9 +20,7 @@ class NotificationService {
       '@mipmap/ic_launcher',
     );
 
-    const initSettings = InitializationSettings(
-      android: androidSettings,
-    );
+    const initSettings = InitializationSettings(android: androidSettings);
 
     await _flutterLocalNotificationsPlugin.initialize(initSettings);
     _isInitialized = true;
@@ -43,9 +41,7 @@ class NotificationService {
       priority: Priority.high,
     );
 
-    const notificationDetails = NotificationDetails(
-      android: androidDetails,
-    );
+    const notificationDetails = NotificationDetails(android: androidDetails);
 
     await _flutterLocalNotificationsPlugin.show(
       packageName.hashCode,
@@ -69,9 +65,7 @@ class NotificationService {
       priority: Priority.defaultPriority,
     );
 
-    const notificationDetails = NotificationDetails(
-      android: androidDetails,
-    );
+    const notificationDetails = NotificationDetails(android: androidDetails);
 
     await _flutterLocalNotificationsPlugin.show(
       id.hashCode,

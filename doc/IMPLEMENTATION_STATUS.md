@@ -66,7 +66,6 @@
 - [x] flutter_riverpod (2.4.1)
 - [x] hive & hive_flutter (local storage)
 - [x] fl_chart (statistics visualization)
-- [x] cupertino_icons (icons)
 
 ### ✅ Documentation
 - [x] APP_GUIDE.md - Feature documentation

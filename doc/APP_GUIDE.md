@@ -168,7 +168,6 @@ flutter run -v
 | hive | ^2.2.3 | Local storage |
 | hive_flutter | ^1.1.0 | Flutter Hive integration |
 | fl_chart | ^0.65.0 | Statistics charts |
-| cupertino_icons | ^1.0.8 | iOS-style icons |
 
 ## Future Enhancements
 
