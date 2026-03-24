@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:permission_scanner/models/app_info.dart';
 import 'package:permission_scanner/utils/app_colors.dart';
@@ -20,14 +21,26 @@ class AppCard extends StatelessWidget {
           padding: EdgeInsets.all(12),
           child: Row(
             children: [
-              // App Icon - placeholder since icons are loaded asynchronously
+              // App Icon
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
                   width: 56,
                   height: 56,
                   color: AppColors.background,
-                  child: Icon(Icons.apps, size: 32, color: AppColors.primary),
+                  child: app.iconPath != null && app.iconPath!.isNotEmpty
+                      ? Image.memory(
+                          base64Decode(app.iconPath!),
+                          width: 56,
+                          height: 56,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Icon(
+                            Icons.apps,
+                            size: 32,
+                            color: AppColors.primary,
+                          ),
+                        )
+                      : Icon(Icons.apps, size: 32, color: AppColors.primary),
                 ),
               ),
               SizedBox(width: 12),

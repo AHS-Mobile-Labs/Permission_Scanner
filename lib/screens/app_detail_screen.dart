@@ -67,12 +67,13 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
   }
 
   List<String> _getFilteredPermissions() {
+    if (showDeveloperPermissions) {
+      return widget.app.permissions;
+    }
+    // Normal mode: show only dangerous/privacy-sensitive permissions
     return widget.app.permissions.where((permission) {
-      final isDeveloper = developerOnlyPermissions.contains(permission);
-      if (isDeveloper && !showDeveloperPermissions) {
-        return false;
-      }
-      return true;
+      return dangerousPermissions.contains(permission) ||
+          permissionDatabase.containsKey(permission);
     }).toList();
   }
 
