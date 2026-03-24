@@ -3,21 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_scanner/screens/home_screen.dart';
 import 'package:permission_scanner/screens/permission_info_screen.dart';
 import 'package:permission_scanner/screens/dashboard_screen.dart';
+import 'package:permission_scanner/screens/splash_screen.dart';
 import 'package:permission_scanner/utils/app_colors.dart';
 import 'package:permission_scanner/services/notification_service.dart';
 import 'package:permission_scanner/services/cache_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize notification service
-  final notificationService = NotificationService();
-  await notificationService.init();
-
-  // Initialize cache service
-  final cacheService = CacheService();
-  await cacheService.init();
-
   runApp(const ProviderScope(child: MyApp()));
 }
 
@@ -29,8 +21,45 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Permission Scanner',
       theme: AppTheme.lightTheme(),
-      home: const MainScreen(),
+      home: const AppInitializer(),
     );
+  }
+}
+
+class AppInitializer extends StatefulWidget {
+  const AppInitializer({super.key});
+
+  @override
+  State<AppInitializer> createState() => _AppInitializerState();
+}
+
+class _AppInitializerState extends State<AppInitializer> {
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initApp();
+  }
+
+  Future<void> _initApp() async {
+    final notificationService = NotificationService();
+    await notificationService.init();
+
+    final cacheService = CacheService();
+    await cacheService.init();
+
+    if (mounted) {
+      setState(() => _initialized = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_initialized) {
+      return const SplashScreen();
+    }
+    return const MainScreen();
   }
 }
 

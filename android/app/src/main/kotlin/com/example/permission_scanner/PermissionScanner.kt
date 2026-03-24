@@ -3,9 +3,15 @@ package com.example.permission_scanner
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.os.Build
+import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 
 class PermissionScanner(private val context: Context) {
     private val packageManager = context.packageManager
@@ -109,7 +115,27 @@ class PermissionScanner(private val context: Context) {
     }
 
     private fun getAppIcon(app: ApplicationInfo): String {
-        // Return empty string - icons will be loaded separately in Flutter
-        return ""
+        return try {
+            val drawable: Drawable = packageManager.getApplicationIcon(app)
+            val bitmap: Bitmap = if (drawable is BitmapDrawable && drawable.bitmap != null) {
+                drawable.bitmap
+            } else {
+                val width = if (drawable.intrinsicWidth > 0) drawable.intrinsicWidth else 48
+                val height = if (drawable.intrinsicHeight > 0) drawable.intrinsicHeight else 48
+                val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bmp)
+                drawable.setBounds(0, 0, canvas.width, canvas.height)
+                drawable.draw(canvas)
+                bmp
+            }
+            // Scale down to 72x72 to reduce memory
+            val scaled = Bitmap.createScaledBitmap(bitmap, 72, 72, true)
+            val stream = ByteArrayOutputStream()
+            scaled.compress(Bitmap.CompressFormat.PNG, 80, stream)
+            val byteArray = stream.toByteArray()
+            Base64.encodeToString(byteArray, Base64.NO_WRAP)
+        } catch (e: Exception) {
+            ""
+        }
     }
 }
