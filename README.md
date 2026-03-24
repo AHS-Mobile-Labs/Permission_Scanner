@@ -25,3 +25,13 @@ flutter run
 ## Permissions
 
 The app needs `QUERY_ALL_PACKAGES` to read other apps' permissions and `POST_NOTIFICATIONS` for risk alerts.
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=AHS-Mobile-Labs%2FPermission_Scanner&type=date&legend=bottom-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=AHS-Mobile-Labs/Permission_Scanner&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=AHS-Mobile-Labs/Permission_Scanner&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=AHS-Mobile-Labs/Permission_Scanner&type=date&legend=bottom-right" />
+ </picture>
+</a>
