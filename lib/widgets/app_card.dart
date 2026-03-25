@@ -34,6 +34,7 @@ class AppCard extends StatelessWidget {
                           width: 56,
                           height: 56,
                           fit: BoxFit.cover,
+                          filterQuality: FilterQuality.high,
                           errorBuilder: (context, error, stackTrace) => Icon(
                             Icons.apps,
                             size: 32,

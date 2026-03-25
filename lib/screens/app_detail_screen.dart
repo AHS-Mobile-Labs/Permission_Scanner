@@ -104,6 +104,7 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
                             child: Image.memory(
                               _decodeBase64Icon(widget.app.iconPath!),
                               fit: BoxFit.cover,
+                              filterQuality: FilterQuality.high,
                               errorBuilder: (context, error, stackTrace) =>
                                   Icon(
                                     Icons.apps,

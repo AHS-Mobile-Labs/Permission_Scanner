@@ -128,10 +128,10 @@ class PermissionScanner(private val context: Context) {
                 drawable.draw(canvas)
                 bmp
             }
-            // Scale down to 72x72 to reduce memory
-            val scaled = Bitmap.createScaledBitmap(bitmap, 72, 72, true)
+            // Scale to 192x192 for sharp display on high-DPI screens
+            val scaled = Bitmap.createScaledBitmap(bitmap, 192, 192, true)
             val stream = ByteArrayOutputStream()
-            scaled.compress(Bitmap.CompressFormat.PNG, 80, stream)
+            scaled.compress(Bitmap.CompressFormat.PNG, 100, stream)
             val byteArray = stream.toByteArray()
             Base64.encodeToString(byteArray, Base64.NO_WRAP)
         } catch (e: Exception) {

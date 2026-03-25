@@ -80,7 +80,9 @@ final filteredAppsProvider = FutureProvider<List<AppInfo>>((ref) async {
 
   // App type filter
   if (appType == AppType.userApps) {
-    filtered = filtered.where((app) => !app.isSystemApp).toList();
+    filtered = filtered
+        .where((app) => !app.isSystemApp && app.installSource != 'Unknown')
+        .toList();
   } else if (appType == AppType.systemApps) {
     filtered = filtered.where((app) => app.isSystemApp).toList();
   } else if (appType == AppType.unknownSource) {
