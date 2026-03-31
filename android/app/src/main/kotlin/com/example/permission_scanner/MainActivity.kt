@@ -23,6 +23,15 @@ class MainActivity : FlutterActivity() {
                         result.error("PERMISSION_ERROR", e.message, null)
                     }
                 }
+                "getAppsFingerprint" -> {
+                    try {
+                        val scanner = PermissionScanner(this)
+                        val fingerprint = scanner.getAppsFingerprint()
+                        result.success(fingerprint)
+                    } catch (e: Exception) {
+                        result.error("FINGERPRINT_ERROR", e.message, null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }

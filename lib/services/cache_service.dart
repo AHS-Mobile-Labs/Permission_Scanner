@@ -4,32 +4,43 @@ import 'package:permission_scanner/models/app_info.dart';
 import 'package:permission_scanner/models/permission_justification.dart';
 
 class CacheService {
-  static const String _boxName = 'apps_cache';
+  static const String _boxName = 'apps_cache_v2';
   static const String _historyBoxName = 'permission_history';
   static const String _justificationBoxName = 'permission_justifications';
   static const String _appCapabilitiesBoxName = 'app_capabilities';
+  static const String _metaBoxName = 'cache_meta';
 
-  late Box<AppInfo> _box;
+  late Box<String> _appsBox;
   late Box<String> _historyBox;
   late Box<String> _justificationBox;
   late Box<String> _capabilitiesBox;
+  late Box<String> _metaBox;
+
+  bool _initialized = false;
 
   Future<void> init() async {
+    if (_initialized) return;
     await Hive.initFlutter();
     try {
-      _box = await Hive.openBox<AppInfo>(_boxName);
+      _appsBox = await Hive.openBox<String>(_boxName);
       _historyBox = await Hive.openBox<String>(_historyBoxName);
       _justificationBox = await Hive.openBox<String>(_justificationBoxName);
       _capabilitiesBox = await Hive.openBox<String>(_appCapabilitiesBoxName);
+      _metaBox = await Hive.openBox<String>(_metaBoxName);
+      _initialized = true;
     } catch (e) {
       print('Error initializing cache: $e');
     }
   }
 
+  // ── Apps cache (stored as JSON strings) ────────────────────────────
+
   Future<void> saveApps(List<AppInfo> apps) async {
     try {
-      await _box.clear();
-      await _box.addAll(apps);
+      await _appsBox.clear();
+      for (int i = 0; i < apps.length; i++) {
+        await _appsBox.put('app_$i', jsonEncode(apps[i].toJson()));
+      }
     } catch (e) {
       print('Error saving apps to cache: $e');
     }
@@ -37,12 +48,44 @@ class CacheService {
 
   List<AppInfo> getCachedApps() {
     try {
-      return _box.values.toList();
+      final apps = <AppInfo>[];
+      for (final value in _appsBox.values) {
+        try {
+          apps.add(AppInfo.fromJson(jsonDecode(value)));
+        } catch (_) {}
+      }
+      return apps;
     } catch (e) {
       print('Error reading cached apps: $e');
       return [];
     }
   }
+
+  // ── Fingerprint for change detection ───────────────────────────────
+
+  String? getCachedFingerprint() {
+    try {
+      return _metaBox.get('apps_fingerprint');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveFingerprint(String fingerprint) async {
+    try {
+      await _metaBox.put('apps_fingerprint', fingerprint);
+    } catch (e) {
+      print('Error saving fingerprint: $e');
+    }
+  }
+
+  /// Returns true if the installed apps have changed since last scan.
+  bool hasAppsChanged(String currentFingerprint) {
+    final cached = getCachedFingerprint();
+    return cached == null || cached != currentFingerprint;
+  }
+
+  // ── Permission history ─────────────────────────────────────────────
 
   Future<void> savePermissionHistory(PermissionHistory history) async {
     try {
@@ -145,7 +188,8 @@ class CacheService {
 
   Future<void> clearCache() async {
     try {
-      await _box.clear();
+      await _appsBox.clear();
+      await _metaBox.delete('apps_fingerprint');
     } catch (e) {
       print('Error clearing cache: $e');
     }
@@ -153,10 +197,11 @@ class CacheService {
 
   Future<void> clearAllData() async {
     try {
-      await _box.clear();
+      await _appsBox.clear();
       await _historyBox.clear();
       await _justificationBox.clear();
       await _capabilitiesBox.clear();
+      await _metaBox.clear();
     } catch (e) {
       print('Error clearing all data: $e');
     }

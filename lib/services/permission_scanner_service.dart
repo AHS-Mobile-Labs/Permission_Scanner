@@ -17,6 +17,18 @@ class PermissionScannerService {
     }
   }
 
+  /// Returns a fingerprint hash of the currently installed package set.
+  /// Changes when any app is installed, uninstalled, or updated.
+  Future<String> getAppsFingerprint() async {
+    try {
+      final result = await platform.invokeMethod<String>('getAppsFingerprint');
+      return result ?? '';
+    } catch (e) {
+      print('Error getting apps fingerprint: $e');
+      return '';
+    }
+  }
+
   static List<AppInfo> _parseAppsFromJson(String jsonString) {
     try {
       final Map<String, dynamic> json = jsonDecode(jsonString);
@@ -28,6 +40,8 @@ class PermissionScannerService {
         );
         final isSystem = appJson['isSystemApp'] as bool? ?? false;
         final installSource = appJson['installSource'] as String? ?? 'Unknown';
+        final installerPackageName =
+            appJson['installerPackageName'] as String? ?? '';
 
         return AppInfo(
           packageName: appJson['packageName'] as String,
@@ -39,6 +53,7 @@ class PermissionScannerService {
           privacyScore: 100,
           isSystemApp: isSystem,
           installSource: installSource,
+          installerPackageName: installerPackageName,
         );
       }).toList();
     } catch (e) {

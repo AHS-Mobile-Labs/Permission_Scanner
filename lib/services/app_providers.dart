@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_scanner/models/app_info.dart';
 import 'package:permission_scanner/models/permission_justification.dart';
@@ -17,39 +18,96 @@ final cacheServiceProvider = Provider((_) {
   return CacheService();
 });
 
-final installedAppsProvider = FutureProvider<List<AppInfo>>((ref) async {
-  final cacheService = ref.watch(cacheServiceProvider);
-  final service = ref.watch(permissionScannerServiceProvider);
+/// Enriches a list of apps on a background isolate using [compute].
+/// This prevents the heavy permission-analysis work from blocking the UI.
+List<AppInfo> _enrichAppsInBackground(List<AppInfo> apps) {
+  return apps.map((app) => PermissionAnalyzer.enrichAppInfo(app)).toList();
+}
 
-  // Try to get cached apps first for instant display
-  final cachedApps = cacheService.getCachedApps();
-  if (cachedApps.isNotEmpty) {
-    // Return cached apps while fetching fresh data in background
-    Future.microtask(() async {
-      try {
-        final freshApps = await service.getInstalledApps();
-        final enrichedApps = freshApps
-            .map((app) => PermissionAnalyzer.enrichAppInfo(app))
-            .toList();
-        await cacheService.saveApps(enrichedApps);
-      } catch (e) {
-        print('Error updating app cache: $e');
-      }
-    });
-    return cachedApps;
+/// Main provider for the installed-apps list.
+///
+/// Strategy:
+/// 1. Return cached apps immediately so the UI renders instantly.
+/// 2. In the background, check whether the installed-app fingerprint has
+///    changed (apps installed / uninstalled / updated).
+/// 3. Only perform a full native re-scan + enrichment when the fingerprint
+///    differs from the cached one, then update the cache.
+/// 4. If no cache exists yet, do the full scan synchronously (first launch).
+final installedAppsProvider =
+    AsyncNotifierProvider<InstalledAppsNotifier, List<AppInfo>>(
+      InstalledAppsNotifier.new,
+    );
+
+class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
+  @override
+  Future<List<AppInfo>> build() async {
+    final cacheService = ref.watch(cacheServiceProvider);
+    final service = ref.watch(permissionScannerServiceProvider);
+
+    await cacheService.init();
+
+    // ── Fast path: return cache while validating in background ─────
+    final cachedApps = cacheService.getCachedApps();
+    if (cachedApps.isNotEmpty) {
+      // Schedule background refresh without blocking the UI
+      Future.microtask(() => _refreshIfChanged(service, cacheService));
+      return cachedApps;
+    }
+
+    // ── Cold start: no cache, must scan now ───────────────────────
+    return _performFullScan(service, cacheService);
   }
 
-  // No cache, fetch from native
-  final apps = await service.getInstalledApps();
-  final enrichedApps = apps
-      .map((app) => PermissionAnalyzer.enrichAppInfo(app))
-      .toList();
+  Future<List<AppInfo>> _performFullScan(
+    PermissionScannerService service,
+    CacheService cacheService,
+  ) async {
+    final apps = await service.getInstalledApps();
+    final enrichedApps = await compute(_enrichAppsInBackground, apps);
 
-  // Cache the results
-  await cacheService.saveApps(enrichedApps);
+    // Persist enriched apps + fingerprint
+    await cacheService.saveApps(enrichedApps);
+    final fingerprint = await service.getAppsFingerprint();
+    if (fingerprint.isNotEmpty) {
+      await cacheService.saveFingerprint(fingerprint);
+    }
 
-  return enrichedApps;
-});
+    return enrichedApps;
+  }
+
+  /// Checks the fingerprint and only re-scans if installed apps have changed.
+  Future<void> _refreshIfChanged(
+    PermissionScannerService service,
+    CacheService cacheService,
+  ) async {
+    try {
+      final fingerprint = await service.getAppsFingerprint();
+      if (fingerprint.isEmpty || !cacheService.hasAppsChanged(fingerprint)) {
+        return; // Nothing changed — skip expensive scan
+      }
+
+      final freshApps = await service.getInstalledApps();
+      final enrichedApps = await compute(_enrichAppsInBackground, freshApps);
+
+      await cacheService.saveApps(enrichedApps);
+      await cacheService.saveFingerprint(fingerprint);
+
+      // Push updated list to listeners
+      state = AsyncData(enrichedApps);
+    } catch (e) {
+      print('Error refreshing app cache: $e');
+    }
+  }
+
+  /// Force a full re-scan (e.g. pull-to-refresh).
+  Future<void> forceRefresh() async {
+    final cacheService = ref.read(cacheServiceProvider);
+    final service = ref.read(permissionScannerServiceProvider);
+    await cacheService.init();
+    state = const AsyncLoading();
+    state = AsyncData(await _performFullScan(service, cacheService));
+  }
+}
 
 final searchQueryProvider = StateProvider<String>((ref) => '');
 final sortOptionProvider = StateProvider<SortOption>((ref) => SortOption.name);
@@ -63,10 +121,9 @@ final filteredAppsProvider = FutureProvider<List<AppInfo>>((ref) async {
   final appType = ref.watch(appTypeProvider);
   final permissionFilter = ref.watch(permissionFilterProvider);
 
-  // Start with all apps
   List<AppInfo> filtered = apps;
 
-  // Search filter - only if query is not empty
+  // Search filter
   if (query.isNotEmpty) {
     final lowerQuery = query.toLowerCase();
     filtered = filtered
@@ -79,9 +136,17 @@ final filteredAppsProvider = FutureProvider<List<AppInfo>>((ref) async {
   }
 
   // App type filter
+  //  - userApps: NOT system AND installer is a known trusted store
+  //  - systemApps: FLAG_SYSTEM or FLAG_UPDATED_SYSTEM_APP (isSystemApp == true)
+  //  - unknownSource: NOT system AND installer is missing / not trusted
   if (appType == AppType.userApps) {
     filtered = filtered
-        .where((app) => !app.isSystemApp && app.installSource != 'Unknown')
+        .where(
+          (app) =>
+              !app.isSystemApp &&
+              app.installSource != 'Unknown' &&
+              app.installSource != 'System',
+        )
         .toList();
   } else if (appType == AppType.systemApps) {
     filtered = filtered.where((app) => app.isSystemApp).toList();
@@ -98,7 +163,7 @@ final filteredAppsProvider = FutureProvider<List<AppInfo>>((ref) async {
         .toList();
   }
 
-  // Sorting - optimized with early return for single item
+  // Sorting
   if (filtered.length > 1) {
     switch (sortOption) {
       case SortOption.name:
@@ -106,7 +171,7 @@ final filteredAppsProvider = FutureProvider<List<AppInfo>>((ref) async {
         break;
       case SortOption.risk:
         filtered.sort((a, b) {
-          final riskOrder = {
+          const riskOrder = {
             RiskLevel.dangerous: 0,
             RiskLevel.medium: 1,
             RiskLevel.safe: 2,
@@ -133,7 +198,6 @@ final permissionHistoryProvider =
       ref,
       packageName,
     ) async {
-      // This will be populated from CacheService
       return [];
     });
 
@@ -157,7 +221,7 @@ final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
         dangerousCount++;
         break;
     }
-    totalDangerousPermissions += (app.dangerousPermissionCount as int? ?? 0);
+    totalDangerousPermissions += app.dangerousPermissionCount;
   }
 
   return DashboardStats(
