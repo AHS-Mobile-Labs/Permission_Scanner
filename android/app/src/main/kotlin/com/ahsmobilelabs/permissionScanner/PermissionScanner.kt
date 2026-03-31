@@ -1,4 +1,4 @@
-package com.example.permission_scanner
+package com.ahsmobilelabs.permissionScanner
 
 import android.content.Context
 import android.content.pm.ApplicationInfo

@@ -1,4 +1,4 @@
-package com.example.permission_scanner
+package com.ahsmobilelabs.permissionScanner
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
