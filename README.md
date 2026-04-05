@@ -35,3 +35,9 @@ The app needs `QUERY_ALL_PACKAGES` to read other apps' permissions and `POST_NOT
    <img alt="Star History Chart" src="https://api.star-history.com/image?repos=AHS-Mobile-Labs/Permission_Scanner&type=date&legend=bottom-right" />
  </picture>
 </a>
+
+## Author
+
+[Ameer Hamza Saifi](https://github.com/ameerhamzasaifi)
+
+© 2026 AHS Mobile Labs
