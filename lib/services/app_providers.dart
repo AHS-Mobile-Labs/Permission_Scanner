@@ -5,6 +5,7 @@ import 'package:permission_scanner/models/permission_justification.dart';
 import 'package:permission_scanner/services/permission_scanner_service.dart';
 import 'package:permission_scanner/services/permission_analyzer.dart';
 import 'package:permission_scanner/services/cache_service.dart';
+import 'package:permission_scanner/utils/permission_database.dart';
 
 enum SortOption { name, risk }
 
@@ -248,3 +249,185 @@ class DashboardStats {
     required this.totalDangerousPermissions,
   });
 }
+
+// ── Dashboard V2 Providers ──────────────────────────────────────
+
+enum DashboardSortOption { name, risk, permissionCount }
+
+final dashboardSearchQueryProvider = StateProvider<String>((ref) => '');
+final dashboardSortOptionProvider = StateProvider<DashboardSortOption>(
+  (ref) => DashboardSortOption.risk,
+);
+final dashboardTabProvider = StateProvider<AppType>((ref) => AppType.userApps);
+final dashboardRiskFilterProvider = StateProvider<RiskLevel?>((ref) => null);
+
+class DashboardOverview {
+  final int totalApps;
+  final int systemApps;
+  final int userApps;
+  final int unknownSourceApps;
+  final int safeApps;
+  final int mediumApps;
+  final int dangerousApps;
+  final int totalDangerousPermissions;
+  final Map<String, int> permissionUsage;
+  final int securityScore;
+
+  DashboardOverview({
+    required this.totalApps,
+    required this.systemApps,
+    required this.userApps,
+    required this.unknownSourceApps,
+    required this.safeApps,
+    required this.mediumApps,
+    required this.dangerousApps,
+    required this.totalDangerousPermissions,
+    required this.permissionUsage,
+    required this.securityScore,
+  });
+}
+
+final dashboardOverviewProvider = FutureProvider<DashboardOverview>((
+  ref,
+) async {
+  final apps = await ref.watch(installedAppsProvider.future);
+
+  int systemCount = 0;
+  int userCount = 0;
+  int unknownCount = 0;
+  int safeCount = 0;
+  int mediumCount = 0;
+  int dangerousCount = 0;
+  int totalDangerousPerms = 0;
+  final permUsage = <String, int>{};
+
+  for (final app in apps) {
+    if (app.isSystemApp) {
+      systemCount++;
+    } else if (app.installSource != 'Unknown' &&
+        app.installSource != 'System') {
+      userCount++;
+    } else {
+      unknownCount++;
+    }
+
+    switch (app.riskLevel) {
+      case RiskLevel.safe:
+        safeCount++;
+        break;
+      case RiskLevel.medium:
+        mediumCount++;
+        break;
+      case RiskLevel.dangerous:
+        dangerousCount++;
+        break;
+    }
+
+    totalDangerousPerms += app.dangerousPermissionCount;
+
+    for (final perm in app.permissions) {
+      if (dangerousPermissions.contains(perm)) {
+        permUsage[perm] = (permUsage[perm] ?? 0) + 1;
+      }
+    }
+  }
+
+  final securityScore = apps.isEmpty
+      ? 100
+      : ((safeCount * 100 + mediumCount * 50 + dangerousCount * 10) /
+                apps.length)
+            .round();
+
+  return DashboardOverview(
+    totalApps: apps.length,
+    systemApps: systemCount,
+    userApps: userCount,
+    unknownSourceApps: unknownCount,
+    safeApps: safeCount,
+    mediumApps: mediumCount,
+    dangerousApps: dangerousCount,
+    totalDangerousPermissions: totalDangerousPerms,
+    permissionUsage: permUsage,
+    securityScore: securityScore,
+  );
+});
+
+final dashboardFilteredAppsProvider = FutureProvider<List<AppInfo>>((
+  ref,
+) async {
+  final apps = await ref.watch(installedAppsProvider.future);
+  final query = ref.watch(dashboardSearchQueryProvider);
+  final sortOption = ref.watch(dashboardSortOptionProvider);
+  final appType = ref.watch(dashboardTabProvider);
+  final riskFilter = ref.watch(dashboardRiskFilterProvider);
+
+  List<AppInfo> filtered = List.of(apps);
+
+  // Search filter
+  if (query.isNotEmpty) {
+    final lowerQuery = query.toLowerCase();
+    filtered = filtered
+        .where(
+          (app) =>
+              app.appName.toLowerCase().contains(lowerQuery) ||
+              app.packageName.toLowerCase().contains(lowerQuery),
+        )
+        .toList();
+  }
+
+  // App type filter
+  switch (appType) {
+    case AppType.userApps:
+      filtered = filtered
+          .where(
+            (app) =>
+                !app.isSystemApp &&
+                app.installSource != 'Unknown' &&
+                app.installSource != 'System',
+          )
+          .toList();
+      break;
+    case AppType.systemApps:
+      filtered = filtered.where((app) => app.isSystemApp).toList();
+      break;
+    case AppType.unknownSource:
+      filtered = filtered
+          .where((app) => !app.isSystemApp && app.installSource == 'Unknown')
+          .toList();
+      break;
+  }
+
+  // Risk level filter
+  if (riskFilter != null) {
+    filtered = filtered.where((app) => app.riskLevel == riskFilter).toList();
+  }
+
+  // Sorting
+  if (filtered.length > 1) {
+    switch (sortOption) {
+      case DashboardSortOption.name:
+        filtered.sort((a, b) => a.appName.compareTo(b.appName));
+        break;
+      case DashboardSortOption.risk:
+        filtered.sort((a, b) {
+          const riskOrder = {
+            RiskLevel.dangerous: 0,
+            RiskLevel.medium: 1,
+            RiskLevel.safe: 2,
+          };
+          return (riskOrder[a.riskLevel] ?? 3).compareTo(
+            riskOrder[b.riskLevel] ?? 3,
+          );
+        });
+        break;
+      case DashboardSortOption.permissionCount:
+        filtered.sort(
+          (a, b) =>
+              b.dangerousPermissionCount.compareTo(a.dangerousPermissionCount),
+        );
+        break;
+    }
+  }
+
+  return filtered;
+});

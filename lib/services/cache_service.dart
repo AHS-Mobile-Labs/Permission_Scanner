@@ -4,6 +4,7 @@ import 'package:permission_scanner/models/app_info.dart';
 import 'package:permission_scanner/models/permission_justification.dart';
 
 class CacheService {
+  static final CacheService _instance = CacheService._internal();
   static const String _boxName = 'apps_cache_v2';
   static const String _historyBoxName = 'permission_history';
   static const String _justificationBoxName = 'permission_justifications';
@@ -18,15 +19,29 @@ class CacheService {
 
   bool _initialized = false;
 
+  CacheService._internal();
+
+  factory CacheService() {
+    return _instance;
+  }
+
   Future<void> init() async {
     if (_initialized) return;
     await Hive.initFlutter();
     try {
-      _appsBox = await Hive.openBox<String>(_boxName);
-      _historyBox = await Hive.openBox<String>(_historyBoxName);
-      _justificationBox = await Hive.openBox<String>(_justificationBoxName);
-      _capabilitiesBox = await Hive.openBox<String>(_appCapabilitiesBoxName);
-      _metaBox = await Hive.openBox<String>(_metaBoxName);
+      // Open all boxes concurrently to reduce sequential I/O wait.
+      final results = await Future.wait([
+        Hive.openBox<String>(_boxName),
+        Hive.openBox<String>(_historyBoxName),
+        Hive.openBox<String>(_justificationBoxName),
+        Hive.openBox<String>(_appCapabilitiesBoxName),
+        Hive.openBox<String>(_metaBoxName),
+      ]);
+      _appsBox = results[0];
+      _historyBox = results[1];
+      _justificationBox = results[2];
+      _capabilitiesBox = results[3];
+      _metaBox = results[4];
       _initialized = true;
     } catch (e) {
       print('Error initializing cache: $e');

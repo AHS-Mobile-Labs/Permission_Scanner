@@ -2,7 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:permission_scanner/utils/app_colors.dart';
 
 class SplashScreen extends StatelessWidget {
-  const SplashScreen({super.key});
+  final double progress;
+  final String statusMessage;
+
+  const SplashScreen({
+    super.key,
+    this.progress = 0.0,
+    this.statusMessage = 'Starting up...',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -32,16 +39,25 @@ class SplashScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Scanning installed apps...',
+              statusMessage,
               style: TextStyle(fontSize: 14, color: AppColors.textLight),
             ),
             const SizedBox(height: 32),
-            const SizedBox(
-              width: 32,
-              height: 32,
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                color: AppColors.primary,
+            SizedBox(
+              width: 200,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: progress),
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                builder: (context, value, _) {
+                  return LinearProgressIndicator(
+                    value: value > 0 ? value : null,
+                    minHeight: 4,
+                    color: AppColors.primary,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(2),
+                  );
+                },
               ),
             ),
           ],

@@ -26,13 +26,16 @@ class NotificationService {
 
       await _flutterLocalNotificationsPlugin.initialize(initSettings);
 
-      // Request notification permission on Android 13+
-      await _requestNotificationPermission();
-
       _isInitialized = true;
     } catch (e) {
       print('Error initializing notifications: $e');
     }
+  }
+
+  /// Request notification permission separately from init so it doesn't
+  /// block startup with a system dialog.
+  Future<void> requestPermission() async {
+    await _requestNotificationPermission();
   }
 
   Future<void> _requestNotificationPermission() async {
