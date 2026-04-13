@@ -39,7 +39,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Cache cleared. Rescanning...'),
-          behavior: SnackBarBehavior.floating,
         ),
       );
     }
@@ -58,14 +57,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final currentSort = ref.watch(dashboardSortOptionProvider);
     final riskFilter = ref.watch(dashboardRiskFilterProvider);
 
-    // Cache latest values to avoid flickering during refresh
     if (overviewAsync.hasValue) _cachedOverview = overviewAsync.value;
     if (filteredAsync.hasValue) _cachedApps = filteredAsync.value;
 
     final overview = overviewAsync.valueOrNull ?? _cachedOverview;
     final filteredApps = filteredAsync.valueOrNull ?? _cachedApps;
 
-    // Initial load — no data at all
     if (overview == null) {
       return _buildSkeleton();
     }
@@ -93,6 +90,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: _handleRefresh,
+        color: AppColors.primary,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
@@ -104,17 +102,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   const Padding(
                     padding: EdgeInsets.all(16),
                     child: SizedBox(
-                      width: 20,
-                      height: 20,
+                      width: 18,
+                      height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: AppColors.primary,
                       ),
                     ),
                   )
                 else
                   IconButton(
-                    icon: const Icon(Icons.refresh),
+                    icon: const Icon(Icons.refresh_rounded, size: 22),
                     onPressed: _handleRefresh,
                     tooltip: 'Rescan apps',
                   ),
@@ -134,9 +132,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 child: Text(
                   '${filteredApps.length} apps',
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     color: AppColors.textLight,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -148,16 +146,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.search_off,
+                        Icons.search_off_rounded,
                         size: 48,
                         color: AppColors.textLight,
                       ),
                       const SizedBox(height: 12),
-                      Text(
+                      const Text(
                         'No apps found',
                         style: TextStyle(
                           color: AppColors.textLight,
-                          fontSize: 15,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
@@ -180,7 +179,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  // ── Security Summary Header ─────────────────────────────────────
+  // ── Security Summary ────────────────────────────────────────────
 
   Widget _buildSecuritySummary(DashboardOverview overview) {
     final score = overview.securityScore;
@@ -199,19 +198,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     return Container(
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1A237E), Color(0xFF1565C0)],
+          colors: AppColors.dashboardGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1A237E).withValues(alpha: 0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: const Color(0xFF0F172A).withValues(alpha: 0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -219,48 +218,57 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         children: [
           Row(
             children: [
-              // Score ring
-              SizedBox(
-                width: 80,
-                height: 80,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox(
-                      width: 80,
-                      height: 80,
-                      child: CircularProgressIndicator(
-                        value: score / 100,
-                        strokeWidth: 6,
-                        backgroundColor: Colors.white.withValues(alpha: 0.15),
-                        valueColor: AlwaysStoppedAnimation(scoreColor),
-                      ),
-                    ),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
+              // Animated score ring
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: score / 100),
+                duration: const Duration(milliseconds: 1200),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, _) {
+                  return SizedBox(
+                    width: 80,
+                    height: 80,
+                    child: Stack(
+                      alignment: Alignment.center,
                       children: [
-                        Text(
-                          '$score',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            height: 1,
+                        SizedBox(
+                          width: 80,
+                          height: 80,
+                          child: CircularProgressIndicator(
+                            value: value,
+                            strokeWidth: 5,
+                            strokeCap: StrokeCap.round,
+                            backgroundColor: Colors.white.withValues(alpha: 0.1),
+                            valueColor: AlwaysStoppedAnimation(scoreColor),
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          scoreLabel,
-                          style: TextStyle(
-                            color: scoreColor,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${(value * 100).toInt()}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                height: 1,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              scoreLabel,
+                              style: TextStyle(
+                                color: scoreColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
               const SizedBox(width: 20),
               Expanded(
@@ -270,7 +278,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     Text(
                       'Security Score',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
+                        color: Colors.white.withValues(alpha: 0.95),
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
                       ),
@@ -279,7 +287,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     Text(
                       '${overview.totalApps} apps scanned',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7),
+                        color: Colors.white.withValues(alpha: 0.6),
                         fontSize: 13,
                       ),
                     ),
@@ -287,7 +295,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     Text(
                       '${overview.totalDangerousPermissions} dangerous permissions',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7),
+                        color: Colors.white.withValues(alpha: 0.6),
                         fontSize: 13,
                       ),
                     ),
@@ -296,41 +304,72 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          // Risk distribution bar
+          const SizedBox(height: 22),
+          // Segmented risk distribution bar
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(5),
             child: SizedBox(
-              height: 6,
+              height: 8,
               child: Row(
                 children: [
                   if (overview.safeApps > 0)
                     Expanded(
                       flex: overview.safeApps,
-                      child: Container(color: AppColors.riskSafe),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.riskSafe,
+                          borderRadius: BorderRadius.only(
+                            topLeft: const Radius.circular(5),
+                            bottomLeft: const Radius.circular(5),
+                            topRight: overview.mediumApps == 0 && overview.dangerousApps == 0
+                                ? const Radius.circular(5)
+                                : Radius.zero,
+                            bottomRight: overview.mediumApps == 0 && overview.dangerousApps == 0
+                                ? const Radius.circular(5)
+                                : Radius.zero,
+                          ),
+                        ),
+                      ),
                     ),
+                  if (overview.safeApps > 0 && (overview.mediumApps > 0 || overview.dangerousApps > 0))
+                    const SizedBox(width: 2),
                   if (overview.mediumApps > 0)
                     Expanded(
                       flex: overview.mediumApps,
                       child: Container(color: AppColors.riskMedium),
                     ),
+                  if (overview.mediumApps > 0 && overview.dangerousApps > 0)
+                    const SizedBox(width: 2),
                   if (overview.dangerousApps > 0)
                     Expanded(
                       flex: overview.dangerousApps,
-                      child: Container(color: AppColors.riskDangerous),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.riskDangerous,
+                          borderRadius: BorderRadius.only(
+                            topRight: const Radius.circular(5),
+                            bottomRight: const Radius.circular(5),
+                            topLeft: overview.safeApps == 0 && overview.mediumApps == 0
+                                ? const Radius.circular(5)
+                                : Radius.zero,
+                            bottomLeft: overview.safeApps == 0 && overview.mediumApps == 0
+                                ? const Radius.circular(5)
+                                : Radius.zero,
+                          ),
+                        ),
+                      ),
                     ),
                   if (overview.totalApps == 0)
                     Expanded(
                       child: Container(
-                        color: Colors.white.withValues(alpha: 0.2),
+                        color: Colors.white.withValues(alpha: 0.15),
                       ),
                     ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          // Legend row
+          const SizedBox(height: 14),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -361,9 +400,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         Text(
           '$count $label',
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.85),
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+            color: Colors.white.withValues(alpha: 0.8),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -388,7 +427,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: _actionCard(
-              Icons.delete_sweep_outlined,
+              Icons.delete_sweep_rounded,
               'Clear Cache',
               AppColors.secondary,
               _handleClearCache,
@@ -417,6 +456,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Material(
       color: AppColors.cardBackground,
       borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
@@ -488,25 +528,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.riskDangerous.withValues(alpha: 0.06),
+                  color: AppColors.riskDangerousContainer,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: AppColors.riskDangerous.withValues(alpha: 0.15),
-                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.shield_outlined,
-                      size: 14,
+                    const Icon(
+                      Icons.shield_rounded,
+                      size: 13,
                       color: AppColors.riskDangerous,
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '$name · ${entry.value}',
+                      '$name  ·  ${entry.value}',
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         color: AppColors.riskDangerous,
                         fontWeight: FontWeight.w600,
                       ),
@@ -531,7 +568,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         onChanged: (value) {
           ref.read(dashboardSearchQueryProvider.notifier).state = value;
         },
-        leading: const Icon(Icons.search, color: AppColors.textLight),
+        leading: const Padding(
+          padding: EdgeInsets.only(left: 4),
+          child: Icon(Icons.search_rounded, color: AppColors.textLight, size: 20),
+        ),
         hintText: 'Search apps...',
       ),
     );
@@ -563,12 +603,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           onSelectionChanged: (value) {
             ref.read(dashboardTabProvider.notifier).state = value.first;
           },
-          style: ButtonStyle(
-            visualDensity: VisualDensity.compact,
-            textStyle: WidgetStateProperty.all(
-              const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ),
         ),
       ),
     );
@@ -584,24 +618,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Row(
         children: [
-          // Sort dropdown
           Expanded(
             child: Container(
               height: 40,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: AppColors.cardBackground,
+                color: AppColors.surfaceVariant,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.divider),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<DashboardSortOption>(
                   isExpanded: true,
                   value: currentSort,
-                  icon: const Icon(Icons.sort, size: 18),
+                  icon: const Icon(Icons.sort_rounded, size: 16, color: AppColors.textLight),
                   style: const TextStyle(
                     fontSize: 13,
                     color: AppColors.textDark,
+                    fontWeight: FontWeight.w500,
                   ),
                   items: const [
                     DropdownMenuItem(
@@ -627,7 +660,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          // Risk filter chips
           _filterChip(
             'All',
             riskFilter == null,
@@ -669,9 +701,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         decoration: BoxDecoration(
           color: selected
               ? color.withValues(alpha: 0.12)
-              : AppColors.cardBackground,
+              : AppColors.surfaceVariant,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: selected ? color : AppColors.divider),
+          border: Border.all(
+            color: selected ? color : Colors.transparent,
+          ),
         ),
         child: Text(
           label,
@@ -699,12 +733,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: AppColors.divider),
-        ),
+      child: Material(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () {
             ref.read(selectedAppProvider.notifier).state = app;
@@ -713,38 +745,42 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             );
           },
           borderRadius: BorderRadius.circular(14),
-          child: Padding(
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.divider),
+            ),
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                // App icon
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
-                    width: 46,
-                    height: 46,
-                    color: AppColors.background,
+                    width: 44,
+                    height: 44,
+                    color: AppColors.surfaceVariant,
                     child: app.iconPath != null && app.iconPath!.isNotEmpty
                         ? Image.memory(
                             base64Decode(app.iconPath!),
-                            width: 46,
-                            height: 46,
+                            width: 44,
+                            height: 44,
                             fit: BoxFit.cover,
+                            filterQuality: FilterQuality.medium,
+                            cacheWidth: 88,
                             errorBuilder: (_, _, _) => const Icon(
-                              Icons.apps,
-                              size: 26,
+                              Icons.apps_rounded,
+                              size: 24,
                               color: AppColors.primary,
                             ),
                           )
                         : const Icon(
-                            Icons.apps,
-                            size: 26,
+                            Icons.apps_rounded,
+                            size: 24,
                             color: AppColors.primary,
                           ),
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -764,7 +800,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          RiskBadge(riskLevel: app.riskLevel),
+                          RiskBadge(riskLevel: app.riskLevel, compact: true),
                         ],
                       ),
                       const SizedBox(height: 4),
@@ -805,9 +841,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.riskDangerous.withValues(
-                                      alpha: 0.07,
-                                    ),
+                                    color: AppColors.riskDangerousContainer,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
@@ -830,7 +864,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 const Icon(
                   Icons.chevron_right_rounded,
                   color: AppColors.textLight,
-                  size: 20,
+                  size: 18,
                 ),
               ],
             ),
@@ -871,7 +905,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  // ── Skeleton Loader ─────────────────────────────────────────────
+  // ── Skeleton ────────────────────────────────────────────────────
 
   Widget _buildSkeleton() {
     return Scaffold(
@@ -911,14 +945,14 @@ class _DashboardSkeletonState extends State<_DashboardSkeleton>
     super.dispose();
   }
 
-  Widget _bone(double width, double height, {double radius = 12}) {
+  Widget _bone(double width, double height, {double radius = 14}) {
     return AnimatedBuilder(
       animation: _controller,
       builder: (_, _) => Container(
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: Colors.grey.shade300.withValues(
+          color: AppColors.divider.withValues(
             alpha: 0.3 + _controller.value * 0.4,
           ),
           borderRadius: BorderRadius.circular(radius),
@@ -933,23 +967,20 @@ class _DashboardSkeletonState extends State<_DashboardSkeleton>
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Summary skeleton
-          _bone(double.infinity, 190, radius: 20),
+          _bone(double.infinity, 200, radius: 20),
           const SizedBox(height: 16),
-          // Quick actions skeleton
           Row(
             children: List.generate(
               3,
               (_) => Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: _bone(double.infinity, 80, radius: 14),
+                  child: _bone(double.infinity, 80),
                 ),
               ),
             ),
           ),
           const SizedBox(height: 20),
-          // Permission chips skeleton
           Align(alignment: Alignment.centerLeft, child: _bone(180, 16)),
           const SizedBox(height: 10),
           Row(
@@ -962,18 +993,15 @@ class _DashboardSkeletonState extends State<_DashboardSkeleton>
             ],
           ),
           const SizedBox(height: 20),
-          // Search skeleton
           _bone(double.infinity, 48),
           const SizedBox(height: 16),
-          // Tabs skeleton
           _bone(double.infinity, 40),
           const SizedBox(height: 16),
-          // App list skeleton
           ...List.generate(
             5,
             (_) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: _bone(double.infinity, 84),
+              child: _bone(double.infinity, 76),
             ),
           ),
         ],

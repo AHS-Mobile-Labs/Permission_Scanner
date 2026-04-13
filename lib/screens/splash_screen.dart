@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:permission_scanner/utils/app_colors.dart';
 
-class SplashScreen extends StatelessWidget {
+class SplashScreen extends StatefulWidget {
   final double progress;
   final String statusMessage;
 
@@ -12,50 +12,121 @@ class SplashScreen extends StatelessWidget {
   });
 
   @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1800),
+      vsync: this,
+    )..repeat(reverse: true);
+    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(24),
+            ScaleTransition(
+              scale: _pulseAnimation,
+              child: Container(
+                width: 88,
+                height: 88,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: AppColors.primaryGradient,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.shield_rounded,
+                  size: 44,
+                  color: Colors.white,
+                ),
               ),
-              child: const Icon(Icons.security, size: 56, color: Colors.white),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
             const Text(
               'Permission Scanner',
               style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
                 color: AppColors.textDark,
+                letterSpacing: -0.5,
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              statusMessage,
-              style: TextStyle(fontSize: 14, color: AppColors.textLight),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: Text(
+                widget.statusMessage,
+                key: ValueKey(widget.statusMessage),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textLight,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 36),
             SizedBox(
-              width: 200,
+              width: 180,
               child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: progress),
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
+                tween: Tween(begin: 0, end: widget.progress),
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOutCubic,
                 builder: (context, value, _) {
-                  return LinearProgressIndicator(
-                    value: value > 0 ? value : null,
-                    minHeight: 4,
-                    color: AppColors.primary,
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(2),
+                  return Column(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: value > 0 ? value : null,
+                          minHeight: 3,
+                          color: AppColors.primary,
+                          backgroundColor: AppColors.divider,
+                        ),
+                      ),
+                      if (value > 0) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          '${(value * 100).toInt()}%',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textLight,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ],
                   );
                 },
               ),

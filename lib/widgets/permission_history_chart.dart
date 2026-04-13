@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:permission_scanner/models/permission_justification.dart';
+import 'package:permission_scanner/utils/app_colors.dart';
 
 class PermissionHistoryChart extends StatelessWidget {
   final List<PermissionHistory> history;
@@ -9,9 +10,21 @@ class PermissionHistoryChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (history.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(32),
-        child: Center(child: Text('No history available')),
+      return Padding(
+        padding: const EdgeInsets.all(32),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.history_rounded, size: 40, color: AppColors.textLight),
+              const SizedBox(height: 8),
+              const Text(
+                'No history available',
+                style: TextStyle(color: AppColors.textLight, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -22,9 +35,13 @@ class PermissionHistoryChart extends StatelessWidget {
         children: [
           const Text(
             'Permission Scan History',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textDark,
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -37,11 +54,19 @@ class PermissionHistoryChart extends StatelessWidget {
                             100)
                         .toStringAsFixed(1)
                   : '0';
+              final progressValue = record.totalPermissions > 0
+                  ? record.justifiedPermissions / record.totalPermissions
+                  : 0.0;
 
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.cardBackground,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.divider),
+                  ),
+                  padding: const EdgeInsets.all(14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -51,8 +76,9 @@ class PermissionHistoryChart extends StatelessWidget {
                           Text(
                             _formatDate(record.scannedAt),
                             style: const TextStyle(
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w600,
                               fontSize: 12,
+                              color: AppColors.textDark,
                             ),
                           ),
                           Container(
@@ -61,45 +87,72 @@ class PermissionHistoryChart extends StatelessWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.blue.shade100,
-                              borderRadius: BorderRadius.circular(12),
+                              color: AppColors.primaryContainer,
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               '${record.totalPermissions} perms',
-                              style: const TextStyle(fontSize: 11),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            '🔴 Dangerous: ${record.dangerousPermissions}',
-                            style: const TextStyle(fontSize: 12),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.error_rounded,
+                                size: 14,
+                                color: AppColors.riskDangerous,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${record.dangerousPermissions} dangerous',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textMedium,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            '✅ Justified: $justifiedPercent%',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.green,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.check_circle_rounded,
+                                size: 14,
+                                color: AppColors.riskSafe,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$justifiedPercent% justified',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.riskSafe,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(3),
                         child: LinearProgressIndicator(
-                          value:
-                              record.justifiedPermissions /
-                              record.totalPermissions,
-                          minHeight: 6,
-                          backgroundColor: Colors.grey.shade300,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.green.shade400,
+                          value: progressValue,
+                          minHeight: 4,
+                          backgroundColor: AppColors.divider,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            AppColors.riskSafe,
                           ),
                         ),
                       ),

@@ -139,29 +139,43 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    const PermissionInfoScreen(),
-    const DashboardScreen(),
+  static const _screens = <Widget>[
+    HomeScreen(),
+    PermissionInfoScreen(),
+    DashboardScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_selectedIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() => _selectedIndex = index);
-        },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.apps), label: 'Apps'),
-          NavigationDestination(icon: Icon(Icons.info), label: 'Permissions'),
-          NavigationDestination(
-            icon: Icon(Icons.bar_chart),
-            label: 'Dashboard',
-          ),
-        ],
+      body: IndexedStack(index: _selectedIndex, children: _screens),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+        ),
+        child: NavigationBar(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: (index) {
+            setState(() => _selectedIndex = index);
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.apps_rounded),
+              selectedIcon: Icon(Icons.apps_rounded),
+              label: 'Apps',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.shield_outlined),
+              selectedIcon: Icon(Icons.shield_rounded),
+              label: 'Permissions',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard_rounded),
+              label: 'Dashboard',
+            ),
+          ],
+        ),
       ),
     );
   }
