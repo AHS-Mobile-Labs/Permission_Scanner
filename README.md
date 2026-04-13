@@ -1,10 +1,4 @@
 <p align="center">
-  <img alt="Flutter" src="https://img.shields.io/badge/Flutter-3.11+-02569B?logo=flutter&logoColor=white" />
-  <img alt="Dart" src="https://img.shields.io/badge/Dart-3.11+-0175C2?logo=dart&logoColor=white" />
-  <img alt="Platform" src="https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white" />
-  <img alt="License" src="https://img.shields.io/github/license/AHS-Mobile-Labs/Permission_Scanner" />
-</p>
-<p align="center">
   <img src="asset/icon/Permission Scanner.png" width="128" height="128" alt="Permission Scanner icon" />
 </p>
 
