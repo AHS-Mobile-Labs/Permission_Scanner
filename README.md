@@ -13,6 +13,7 @@
   <img alt="Dart" src="https://img.shields.io/badge/Dart-3.11+-0175C2?logo=dart&logoColor=white" />
   <img alt="Platform" src="https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white" />
   <img alt="License" src="https://img.shields.io/github/license/AHS-Mobile-Labs/Permission_Scanner" />
+  <img alt="Release" src="https://img.shields.io/github/v/release/AHS-Mobile-Labs/Permission_Scanner?color=brightgreen&logo=github" />
 </p>
 
 ---
@@ -32,7 +33,13 @@
 
 ## Screenshots
 
-<!-- Add screenshots here -->
+<p align="center">
+  <img src="asset/github-img/%231/Screenshot_20260413_173040.jpg" width="180" alt="Security Dashboard" />
+  <img src="asset/github-img/%231/Screenshot_20260413_173051.jpg" width="180" alt="App List" />
+  <img src="asset/github-img/%231/Screenshot_20260413_173100.jpg" width="180" alt="App Details" />
+  <img src="asset/github-img/%231/Screenshot_20260413_173105.jpg" width="180" alt="Permission Info" />
+  <img src="asset/github-img/%231/Screenshot_20260413_173114.jpg" width="180" alt="Dashboard Risk Filter" />
+</p>
 
 ## Architecture
 
