@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.ahsmobilelabs.permissionScanner"
+    namespace = "com.ahsmobilelabs.permissionScanner.opensoucre"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 

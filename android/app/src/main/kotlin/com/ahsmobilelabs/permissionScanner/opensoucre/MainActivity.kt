@@ -1,4 +1,4 @@
-package com.ahsmobilelabs.permissionScanner
+package com.ahsmobilelabs.permissionScanner.opensoucre
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine

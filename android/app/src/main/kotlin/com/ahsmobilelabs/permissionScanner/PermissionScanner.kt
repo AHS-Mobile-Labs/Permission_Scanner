@@ -1,4 +1,4 @@
-package com.ahsmobilelabs.permissionScanner
+package com.ahsmobilelabs.permissionScanner.opensoucre
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
