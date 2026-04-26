@@ -1,0 +1,387 @@
+PRIVACY POLICY - Permission Scanner
+Last Updated: April 2026
+
+=============================================================================
+1. INTRODUCTION
+=============================================================================
+
+Permission Scanner ("the App") is a privacy-first Android application
+designed to help users understand what permissions their installed apps
+request and whether those permissions are justified.
+
+This Privacy Policy explains how we handle information when you use
+Permission Scanner. We are committed to protecting your privacy and
+operating with transparency.
+
+AHS Mobile Labs ("we", "us", "our") takes your privacy seriously. This
+policy describes our practices regarding data collection, use, and storage.
+
+
+=============================================================================
+2. DATA WE COLLECT AND STORE LOCALLY
+=============================================================================
+
+Permission Scanner is designed to operate entirely on your device with
+minimal data collection. All scanning and analysis happens locally.
+
+2.1 LOCALLY STORED DATA
+
+The App collects and stores the following information ONLY on your device:
+
+  • Installed Apps List: Package names, app names, icon data, and install
+    sources (detected from your device's package manager)
+  
+  • App Permissions: The list of permissions each installed app declares
+    in its manifest (android.permission.*)
+  
+  • Risk Analysis: Locally computed risk levels and privacy scores based
+    on permission counts
+  
+  • User Verifications: App capabilities you manually tag (e.g., "Takes
+    Photos", "Records Audio") to help identify justified permissions
+  
+  • Cache Data: Fingerprints of your installed apps to optimize rescans
+    and avoid redundant native calls
+  
+  • Scan History: Per-app permission scan records with timestamps and
+    permission change tracking (stored in Hive database)
+
+All of this data is stored ONLY in Hive local key-value storage on your
+device and is never transmitted to external servers.
+
+
+2.2 SYSTEM PERMISSIONS REQUIRED
+
+To function, Permission Scanner requires these Android permissions:
+
+  • QUERY_ALL_PACKAGES: To read the permission manifests of all installed
+    apps on your device
+  
+  • POST_NOTIFICATIONS: To send optional local alerts when a newly
+    installed app requests a high number of dangerous permissions
+
+Both permissions are requested with clear justification when needed, and
+notification permission is requested AFTER the main UI loads to avoid
+blocking app startup.
+
+
+2.3 DATA YOU DO NOT SEND TO US
+
+Permission Scanner does NOT:
+
+  • Send your installed app list to any server
+  • Send your device identifiers (IMEI, serial number, or Android ID)
+  • Transmit personal data, location, or network information
+  • Connect to cloud services or external APIs
+  • Share data with third parties
+  • Include telemetry, analytics, or crash reporting
+
+
+=============================================================================
+3. HOW WE USE YOUR DATA
+=============================================================================
+
+3.1 LOCAL ANALYSIS
+
+All data collected is used exclusively for:
+
+  • Analyzing permissions requested by your installed apps
+  • Calculating privacy scores and risk levels
+  • Identifying potentially unjustified permission use
+  • Building the permission database and UI displays
+  • Storing your manual app verifications
+
+3.2 CACHING AND OPTIMIZATION
+
+Permission Scanner uses intelligent caching to:
+
+  • Avoid redundant native calls by comparing app fingerprints
+  • Provide instant app list loading on return visits
+  • Store historical permission scan data for comparison over time
+
+3.3 LOCAL NOTIFICATIONS
+
+When enabled, we send local notifications only to:
+
+  • Alert you when a newly installed app requests many dangerous
+    permissions
+  • Remind you of key privacy insights
+
+These notifications are generated locally and never leave your device.
+
+
+=============================================================================
+4. DATA RETENTION
+=============================================================================
+
+4.1 HOW LONG WE KEEP DATA
+
+  • Installed Apps List: Kept until manually cleared or app is uninstalled
+  
+  • Scan History: Last 30 permission scans per app are retained; older
+    records are automatically removed
+  
+  • User Verifications: Stored indefinitely until manually deleted by you
+  
+  • Cache Metadata: Maintained for optimization until cleared
+  
+  • Device Fingerprints: Used only for change detection and discarded when
+    no longer needed
+
+4.2 CLEARING YOUR DATA
+
+You can clear all cached data at any time using the "Clear Cache" action
+in the Security Dashboard. You can also uninstall the app to remove all
+stored data.
+
+Uninstalling Permission Scanner deletes all:
+
+  • Cached app information
+  • Scan history records
+  • User-created app verifications
+  • Notification preferences
+
+
+=============================================================================
+5. OFFLINE-FIRST OPERATION
+=============================================================================
+
+Permission Scanner is designed to work fully offline:
+
+  • No internet connection required for core functionality
+  • No cloud synchronization
+  • No server-side processing or storage
+  • All computation happens on your device
+  • The app respects the INTERNET permission but does not require it
+
+This offline-first design ensures maximum privacy and minimal data exposure.
+
+
+=============================================================================
+6. PERMISSION JUSTIFICATION ENGINE
+=============================================================================
+
+The App includes a justification engine that maps app capabilities to
+required permissions:
+
+  • You manually select what features an app uses (e.g., "Take Photos")
+  
+  • The App matches these capabilities to Android permissions
+  
+  • Permissions supported by your tagged capabilities are marked as
+    "justified"
+  
+  • This is a local reference tool and does not validate actual app
+    behavior—it only helps you understand why permissions exist
+
+The justification database is stored locally and never transmitted.
+
+
+=============================================================================
+7. SECURITY AND ENCRYPTION
+=============================================================================
+
+7.1 LOCAL STORAGE SECURITY
+
+  • App data is stored in Hive, a secure local key-value database
+  
+  • Data is persisted in your app's private storage directory (accessible
+    only by Permission Scanner and the system)
+  
+  • On devices with encrypted storage, Hive data benefits from device-level
+    encryption
+
+7.2 ICON CACHING
+
+App icons are cached locally as base64-encoded image data and stored in
+the Hive database. These icons are extracted from your device's installed
+packages and are never transmitted externally.
+
+7.3 NO EXTERNAL TRANSMISSION
+
+Because Permission Scanner operates entirely offline, no encryption of
+transmissions is needed—your data is never sent over the internet.
+
+
+=============================================================================
+8. THIRD-PARTY LIBRARIES AND DEPENDENCIES
+=============================================================================
+
+Permission Scanner uses the following open-source packages:
+
+  • flutter_riverpod: State management (no data collection)
+  • hive & hive_flutter: Local storage (no external communication)
+  • fl_chart: Data visualization (no data collection)
+  • flutter_local_notifications: Local push notifications (device-only)
+  • permission_handler: Android permission request handling (device-only)
+  • intl: Date formatting (no data collection)
+
+None of these libraries transmit user data to external servers. You can
+verify this by reviewing their source code:
+
+  https://pub.dev/packages/flutter_riverpod
+  https://pub.dev/packages/hive
+  https://pub.dev/packages/fl_chart
+  https://pub.dev/packages/flutter_local_notifications
+  https://pub.dev/packages/permission_handler
+  https://pub.dev/packages/intl
+
+
+=============================================================================
+9. CHILDREN'S PRIVACY
+=============================================================================
+
+Permission Scanner is designed for users aged 13 and older. We do not
+knowingly collect personal information from children under 13. If we
+become aware that a child under 13 is using the App, we will take
+appropriate steps to prevent further collection.
+
+If you believe a child under 13 has used this App, please contact us at:
+
+  GitHub: https://github.com/ameerhamzasaifi
+
+
+=============================================================================
+10. YOUR PRIVACY CHOICES
+=============================================================================
+
+10.1 NOTIFICATION PERMISSIONS
+
+You can choose to grant or deny notification permissions at any time. If
+denied, Permission Scanner will not send alerts about newly installed
+high-risk apps but will continue to function normally.
+
+10.2 DATA DELETION
+
+You can delete all app data by:
+
+  • Using the "Clear Cache" button in the Security Dashboard
+  • Uninstalling the App
+  • Using Android Settings > Apps > Permission Scanner > Storage > Clear
+    Storage
+
+10.3 PERMISSION REVOCATION
+
+At any time, you can revoke the following permissions via Android Settings:
+
+  • QUERY_ALL_PACKAGES (allows the App to see installed apps)
+  • POST_NOTIFICATIONS (allows push notifications)
+
+Revoking QUERY_ALL_PACKAGES will prevent the App from functioning properly,
+but you can do this if you choose not to use the App.
+
+
+=============================================================================
+11. CHANGES TO THIS PRIVACY POLICY
+=============================================================================
+
+We may update this Privacy Policy from time to time to reflect changes in
+our practices or applicable laws. When we make material changes, we will
+update the "Last Updated" date at the top of this policy.
+
+If we make significant changes, we will notify you either through the App
+or by other reasonable means. Your continued use of Permission Scanner
+after changes indicates your acceptance of the updated Privacy Policy.
+
+
+=============================================================================
+12. CONTACT US
+=============================================================================
+
+If you have questions, concerns, or requests regarding this Privacy Policy
+or our privacy practices, please contact us:
+
+GitHub: https://github.com/AHS-Mobile-Labs/Permission_Scanner
+GitHub Issues: https://github.com/AHS-Mobile-Labs/Permission_Scanner/issues
+
+We will respond to reasonable privacy requests within 30 days.
+
+
+=============================================================================
+13. LEGAL AND COMPLIANCE
+=============================================================================
+
+13.1 APPLICABLE LAWS
+
+This Privacy Policy complies with:
+
+  • General Data Protection Regulation (GDPR) - for users in the EU
+  • California Consumer Privacy Act (CCPA) - for users in California
+  • India's Information Technology Act (applicable for AHS Mobile Labs)
+  • Android Privacy Sandbox guidelines
+
+13.2 NO PERSONAL DATA COLLECTION
+
+Because Permission Scanner does not collect, store, or transmit personal
+data in the traditional sense (names, email addresses, phone numbers,
+etc.), many privacy regulations do not apply. However, we maintain this
+policy for transparency and to respect user rights.
+
+13.3 DATA SUBJECT RIGHTS
+
+You have the right to:
+
+  • Know what data we hold about you (answer: only locally stored app
+    permission data)
+  
+  • Access your data (you can access everything stored by opening your
+    device storage)
+  
+  • Delete your data (use "Clear Cache" or uninstall)
+  
+  • Port your data (you can extract Hive database files if needed)
+
+Since all your data is stored locally on your device, you have direct
+access to it at all times.
+
+
+=============================================================================
+14. LIMITATION OF LIABILITY
+=============================================================================
+
+Permission Scanner is provided "as is" without warranties. We make no
+guarantees regarding:
+
+  • The accuracy of permission analysis
+  • The completeness of detected permissions
+  • The validity of risk scores or privacy assessments
+  • Protection against actual malicious app behavior
+
+Permission Scanner is an educational tool to help you understand app
+permissions. It is not a guarantee of security or privacy. Always review
+app reviews, privacy policies, and source code when evaluating app safety.
+
+
+=============================================================================
+15. LICENSING
+=============================================================================
+
+Permission Scanner is released under the MIT License. The source code is
+publicly available on GitHub:
+
+  https://github.com/AHS-Mobile-Labs/Permission_Scanner
+
+You can review the source code to verify our privacy practices and confirm
+that no unauthorized data collection occurs.
+
+Copyright © 2026 AHS Mobile Labs
+
+
+=============================================================================
+16. EXPORT CONTROL
+=============================================================================
+
+Permission Scanner may be subject to export controls depending on your
+location. Please comply with all applicable laws regarding the
+installation and use of this App.
+
+
+=============================================================================
+
+END OF PRIVACY POLICY
+
+If you do not agree with this Privacy Policy, please do not use
+Permission Scanner.
+
+Last Updated: April 2026
+Version: 1.0.0
