@@ -13,128 +13,116 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final filteredAppsAsync = ref.watch(filteredAppsProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Permission Scanner'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.shield_rounded, size: 22),
-            onPressed: () {},
-            tooltip: 'About',
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Sticky search + filters
-          Container(
-            color: AppColors.background,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                  child: SearchBar(
-                    onChanged: (value) {
-                      ref.read(searchQueryProvider.notifier).state = value;
-                    },
-                    leading: const Padding(
-                      padding: EdgeInsets.only(left: 4),
-                      child: Icon(
-                        Icons.search_rounded,
-                        color: AppColors.textLight,
-                        size: 20,
-                      ),
+    return Column(
+      children: [
+        // Sticky search + filters
+        Container(
+          color: AppColors.background,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: SearchBar(
+                  onChanged: (value) {
+                    ref.read(searchQueryProvider.notifier).state = value;
+                  },
+                  leading: const Padding(
+                    padding: EdgeInsets.only(left: 4),
+                    child: Icon(
+                      Icons.search_rounded,
+                      color: AppColors.textLight,
+                      size: 20,
                     ),
-                    hintText: 'Search apps...',
                   ),
+                  hintText: 'Search apps...',
                 ),
-                const FilterSortBar(),
-                const SizedBox(height: 8),
-              ],
-            ),
+              ),
+              const FilterSortBar(),
+              const SizedBox(height: 8),
+            ],
           ),
-          Expanded(
-            child: filteredAppsAsync.when(
-              data: (apps) {
-                if (apps.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.search_off_rounded,
-                          size: 48,
+        ),
+        Expanded(
+          child: filteredAppsAsync.when(
+            data: (apps) {
+              if (apps.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.search_off_rounded,
+                        size: 48,
+                        color: AppColors.textLight,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'No apps found',
+                        style: TextStyle(
                           color: AppColors.textLight,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
                         ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'No apps found',
-                          style: TextStyle(
-                            color: AppColors.textLight,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return ListView.builder(
+                padding: const EdgeInsets.only(top: 4, bottom: 16),
+                itemCount: apps.length,
+                itemBuilder: (context, index) {
+                  final app = apps[index];
+                  return RepaintBoundary(
+                    child: AppCard(
+                      app: app,
+                      onTap: () {
+                        ref.read(selectedAppProvider.notifier).state = app;
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => AppDetailScreen(app: app),
                           ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
                   );
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.only(top: 4, bottom: 16),
-                  itemCount: apps.length,
-                  itemBuilder: (context, index) {
-                    final app = apps[index];
-                    return RepaintBoundary(
-                      child: AppCard(
-                        app: app,
-                        onTap: () {
-                          ref.read(selectedAppProvider.notifier).state = app;
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => AppDetailScreen(app: app),
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  },
-                );
-              },
-              loading: () => const _HomeScreenSkeleton(),
-              error: (error, stack) => Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.error_outline_rounded,
-                      size: 48,
-                      color: AppColors.riskDangerous,
+                },
+              );
+            },
+            loading: () => const _HomeScreenSkeleton(),
+            error: (error, stack) => Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    size: 48,
+                    color: AppColors.riskDangerous,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Failed to load apps',
+                    style: const TextStyle(
+                      color: AppColors.textDark,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Failed to load apps',
-                      style: const TextStyle(
-                        color: AppColors.textDark,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$error',
+                    style: const TextStyle(
+                      color: AppColors.textLight,
+                      fontSize: 12,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$error',
-                      style: const TextStyle(
-                        color: AppColors.textLight,
-                        fontSize: 12,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

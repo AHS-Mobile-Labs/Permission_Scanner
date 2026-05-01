@@ -23,95 +23,92 @@ class _PermissionInfoScreenState extends State<PermissionInfoScreen> {
         .where((p) => !p.isDangerous)
         .toList();
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Permission Info')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 32),
-        child: Column(
-          children: [
-            // Info banner
-            Padding(
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 32),
+      child: Column(
+        children: [
+          // Info banner
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Container(
               padding: const EdgeInsets.all(16),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceVariant,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryContainer,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.info_rounded,
-                        color: AppColors.primary,
-                        size: 20,
-                      ),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryContainer,
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Permission Reference',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: AppColors.textDark,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Tap any permission to learn why it matters',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textLight,
-                            ),
-                          ),
-                        ],
-                      ),
+                    child: const Icon(
+                      Icons.info_rounded,
+                      color: AppColors.primary,
+                      size: 20,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Permission Reference',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Tap any permission to learn why it matters',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textLight,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
+          ),
 
-            // Dangerous section
-            _buildExpandableSection(
-              title: 'Dangerous Permissions',
-              count: dangerousPerms.length,
-              color: AppColors.riskDangerous,
-              bgColor: AppColors.riskDangerousContainer,
-              icon: Icons.error_rounded,
-              subtitle: 'May access sensitive user data or device features',
-              expanded: _dangerousExpanded,
-              onToggle: () =>
-                  setState(() => _dangerousExpanded = !_dangerousExpanded),
-              children: dangerousPerms,
-            ),
+          // Dangerous section
+          _buildExpandableSection(
+            title: 'Dangerous Permissions',
+            count: dangerousPerms.length,
+            color: AppColors.riskDangerous,
+            bgColor: AppColors.riskDangerousContainer,
+            icon: Icons.error_rounded,
+            subtitle: 'May access sensitive user data or device features',
+            expanded: _dangerousExpanded,
+            onToggle: () =>
+                setState(() => _dangerousExpanded = !_dangerousExpanded),
+            children: dangerousPerms,
+          ),
 
-            const SizedBox(height: 8),
+          const SizedBox(height: 8),
 
-            // Safe section
-            _buildExpandableSection(
-              title: 'Standard Permissions',
-              count: safePerms.length,
-              color: AppColors.riskSafe,
-              bgColor: AppColors.riskSafeContainer,
-              icon: Icons.check_circle_rounded,
-              subtitle: 'Generally safe, don\'t access sensitive data',
-              expanded: _safeExpanded,
-              onToggle: () => setState(() => _safeExpanded = !_safeExpanded),
-              children: safePerms,
-            ),
-          ],
-        ),
+          // Safe section
+          _buildExpandableSection(
+            title: 'Standard Permissions',
+            count: safePerms.length,
+            color: AppColors.riskSafe,
+            bgColor: AppColors.riskSafeContainer,
+            icon: Icons.check_circle_rounded,
+            subtitle: 'Generally safe, don\'t access sensitive data',
+            expanded: _safeExpanded,
+            onToggle: () => setState(() => _safeExpanded = !_safeExpanded),
+            children: safePerms,
+          ),
+        ],
       ),
     );
   }

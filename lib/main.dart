@@ -148,6 +148,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: _buildAppBar(),
       body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
@@ -178,5 +179,27 @@ class _MainScreenState extends State<MainScreen> {
         ),
       ),
     );
+  }
+
+  AppBar _buildAppBar() {
+    switch (_selectedIndex) {
+      case 0:
+        return AppBar(
+          title: const Text('Permission Scanner'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.shield_rounded, size: 22),
+              onPressed: () {},
+              tooltip: 'About',
+            ),
+          ],
+        );
+      case 1:
+        return AppBar(title: const Text('Permission Info'));
+      case 2:
+        return AppBar(title: const Text('Security Dashboard'));
+      default:
+        return AppBar(title: const Text('Permission Scanner'));
+    }
   }
 }

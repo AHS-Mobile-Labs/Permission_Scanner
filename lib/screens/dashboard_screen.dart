@@ -37,9 +37,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     await cacheService.clearCache();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cache cleared. Rescanning...'),
-        ),
+        const SnackBar(content: Text('Cache cleared. Rescanning...')),
       );
     }
     await _handleRefresh();
@@ -87,94 +85,91 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     RiskLevel? riskFilter, {
     bool isRefreshing = false,
   }) {
-    return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: _handleRefresh,
-        color: AppColors.primary,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverAppBar(
-              pinned: true,
-              title: const Text('Security Dashboard'),
-              actions: [
-                if (isRefreshing)
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.primary,
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      color: AppColors.primary,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            title: const Text('Security Dashboard'),
+            actions: [
+              if (isRefreshing)
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                )
+              else
+                IconButton(
+                  icon: const Icon(Icons.refresh_rounded, size: 22),
+                  onPressed: _handleRefresh,
+                  tooltip: 'Rescan apps',
+                ),
+            ],
+          ),
+          SliverToBoxAdapter(child: _buildSecuritySummary(overview)),
+          SliverToBoxAdapter(child: _buildQuickActions()),
+          SliverToBoxAdapter(child: _buildPermissionBreakdown(overview)),
+          SliverToBoxAdapter(child: _buildSearchBar()),
+          SliverToBoxAdapter(child: _buildAppTypeTabs(overview, currentTab)),
+          SliverToBoxAdapter(
+            child: _buildSortFilterBar(currentSort, riskFilter),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text(
+                '${filteredApps.length} apps',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textLight,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          if (filteredApps.isEmpty)
+            SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.search_off_rounded,
+                      size: 48,
+                      color: AppColors.textLight,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'No apps found',
+                      style: TextStyle(
+                        color: AppColors.textLight,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                  )
-                else
-                  IconButton(
-                    icon: const Icon(Icons.refresh_rounded, size: 22),
-                    onPressed: _handleRefresh,
-                    tooltip: 'Rescan apps',
-                  ),
-              ],
-            ),
-            SliverToBoxAdapter(child: _buildSecuritySummary(overview)),
-            SliverToBoxAdapter(child: _buildQuickActions()),
-            SliverToBoxAdapter(child: _buildPermissionBreakdown(overview)),
-            SliverToBoxAdapter(child: _buildSearchBar()),
-            SliverToBoxAdapter(child: _buildAppTypeTabs(overview, currentTab)),
-            SliverToBoxAdapter(
-              child: _buildSortFilterBar(currentSort, riskFilter),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: Text(
-                  '${filteredApps.length} apps',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textLight,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  ],
                 ),
               ),
-            ),
-            if (filteredApps.isEmpty)
-              SliverFillRemaining(
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.search_off_rounded,
-                        size: 48,
-                        color: AppColors.textLight,
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'No apps found',
-                        style: TextStyle(
-                          color: AppColors.textLight,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => RepaintBoundary(
-                    child: _buildAppTile(filteredApps[index]),
-                  ),
-                  childCount: filteredApps.length,
-                ),
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) =>
+                    RepaintBoundary(child: _buildAppTile(filteredApps[index])),
+                childCount: filteredApps.length,
               ),
-            const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
-          ],
-        ),
+            ),
+          const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
+        ],
       ),
     );
   }
@@ -237,7 +232,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             value: value,
                             strokeWidth: 5,
                             strokeCap: StrokeCap.round,
-                            backgroundColor: Colors.white.withValues(alpha: 0.1),
+                            backgroundColor: Colors.white.withValues(
+                              alpha: 0.1,
+                            ),
                             valueColor: AlwaysStoppedAnimation(scoreColor),
                           ),
                         ),
@@ -321,17 +318,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           borderRadius: BorderRadius.only(
                             topLeft: const Radius.circular(5),
                             bottomLeft: const Radius.circular(5),
-                            topRight: overview.mediumApps == 0 && overview.dangerousApps == 0
+                            topRight:
+                                overview.mediumApps == 0 &&
+                                    overview.dangerousApps == 0
                                 ? const Radius.circular(5)
                                 : Radius.zero,
-                            bottomRight: overview.mediumApps == 0 && overview.dangerousApps == 0
+                            bottomRight:
+                                overview.mediumApps == 0 &&
+                                    overview.dangerousApps == 0
                                 ? const Radius.circular(5)
                                 : Radius.zero,
                           ),
                         ),
                       ),
                     ),
-                  if (overview.safeApps > 0 && (overview.mediumApps > 0 || overview.dangerousApps > 0))
+                  if (overview.safeApps > 0 &&
+                      (overview.mediumApps > 0 || overview.dangerousApps > 0))
                     const SizedBox(width: 2),
                   if (overview.mediumApps > 0)
                     Expanded(
@@ -349,10 +351,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           borderRadius: BorderRadius.only(
                             topRight: const Radius.circular(5),
                             bottomRight: const Radius.circular(5),
-                            topLeft: overview.safeApps == 0 && overview.mediumApps == 0
+                            topLeft:
+                                overview.safeApps == 0 &&
+                                    overview.mediumApps == 0
                                 ? const Radius.circular(5)
                                 : Radius.zero,
-                            bottomLeft: overview.safeApps == 0 && overview.mediumApps == 0
+                            bottomLeft:
+                                overview.safeApps == 0 &&
+                                    overview.mediumApps == 0
                                 ? const Radius.circular(5)
                                 : Radius.zero,
                           ),
@@ -570,7 +576,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         },
         leading: const Padding(
           padding: EdgeInsets.only(left: 4),
-          child: Icon(Icons.search_rounded, color: AppColors.textLight, size: 20),
+          child: Icon(
+            Icons.search_rounded,
+            color: AppColors.textLight,
+            size: 20,
+          ),
         ),
         hintText: 'Search apps...',
       ),
@@ -630,7 +640,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 child: DropdownButton<DashboardSortOption>(
                   isExpanded: true,
                   value: currentSort,
-                  icon: const Icon(Icons.sort_rounded, size: 16, color: AppColors.textLight),
+                  icon: const Icon(
+                    Icons.sort_rounded,
+                    size: 16,
+                    color: AppColors.textLight,
+                  ),
                   style: const TextStyle(
                     fontSize: 13,
                     color: AppColors.textDark,
@@ -703,9 +717,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ? color.withValues(alpha: 0.12)
               : AppColors.surfaceVariant,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selected ? color : Colors.transparent,
-          ),
+          border: Border.all(color: selected ? color : Colors.transparent),
         ),
         child: Text(
           label,
@@ -908,13 +920,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   // ── Skeleton ────────────────────────────────────────────────────
 
   Widget _buildSkeleton() {
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          const SliverAppBar(pinned: true, title: Text('Security Dashboard')),
-          SliverToBoxAdapter(child: _DashboardSkeleton()),
-        ],
-      ),
+    return CustomScrollView(
+      slivers: [SliverToBoxAdapter(child: _DashboardSkeleton())],
     );
   }
 }
