@@ -42,3 +42,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ===== KEYSTORE FILES (LOCAL ONLY - DO NOT COMMIT) =====
+# Store keystores in /keys folder - NEVER push to GitHub
+keys/permission_scanner_release_new.keystore
+keys/keystore_base64.txt
+keys/*.keystore
+keys/*.jks
+keys/key.properties
+*.keystore
+*.jks
+keystore_base64.txt

@@ -53,9 +53,14 @@ class CacheService {
   Future<void> saveApps(List<AppInfo> apps) async {
     try {
       await _appsBox.clear();
+
+      // Batch write all apps at once instead of sequential puts
+      // This reduces I/O operations from N to 1
+      final Map<String, String> batch = {};
       for (int i = 0; i < apps.length; i++) {
-        await _appsBox.put('app_$i', jsonEncode(apps[i].toJson()));
+        batch['app_$i'] = jsonEncode(apps[i].toJson());
       }
+      await _appsBox.putAll(batch);
     } catch (e) {
       print('Error saving apps to cache: $e');
     }
@@ -212,11 +217,14 @@ class CacheService {
 
   Future<void> clearAllData() async {
     try {
-      await _appsBox.clear();
-      await _historyBox.clear();
-      await _justificationBox.clear();
-      await _capabilitiesBox.clear();
-      await _metaBox.clear();
+      // Run all clears concurrently instead of sequentially
+      await Future.wait([
+        _appsBox.clear(),
+        _historyBox.clear(),
+        _justificationBox.clear(),
+        _capabilitiesBox.clear(),
+        _metaBox.clear(),
+      ]);
     } catch (e) {
       print('Error clearing all data: $e');
     }

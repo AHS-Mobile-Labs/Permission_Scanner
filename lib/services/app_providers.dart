@@ -6,6 +6,7 @@ import 'package:permission_scanner/services/permission_scanner_service.dart';
 import 'package:permission_scanner/services/permission_analyzer.dart';
 import 'package:permission_scanner/services/cache_service.dart';
 import 'package:permission_scanner/utils/permission_database.dart';
+import 'dart:async';
 
 enum SortOption { name, risk }
 
@@ -51,11 +52,13 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
     final cachedApps = cacheService.getCachedApps();
     if (cachedApps.isNotEmpty) {
       // Schedule background refresh without blocking the UI
-      Future.microtask(() => _refreshIfChanged(service, cacheService));
+      // Don't await this - let it run independently
+      unawaited(_refreshIfChanged(service, cacheService));
       return cachedApps;
     }
 
     // ── Cold start: no cache, must scan now ───────────────────────
+    // Show loading state immediately for first launch
     return _performFullScan(service, cacheService);
   }
 
@@ -63,15 +66,23 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
     PermissionScannerService service,
     CacheService cacheService,
   ) async {
-    final apps = await service.getInstalledApps();
+    // Fetch apps and fingerprint in parallel to reduce total time
+    final result = await Future.wait([
+      service.getInstalledApps(),
+      service.getAppsFingerprint(),
+    ]);
+
+    final apps = result[0] as List<AppInfo>;
+    final fingerprint = result[1] as String;
+
+    // Enrich apps on background isolate
     final enrichedApps = await compute(_enrichAppsInBackground, apps);
 
-    // Persist enriched apps + fingerprint
-    await cacheService.saveApps(enrichedApps);
-    final fingerprint = await service.getAppsFingerprint();
-    if (fingerprint.isNotEmpty) {
-      await cacheService.saveFingerprint(fingerprint);
-    }
+    // Persist enriched apps and fingerprint in parallel
+    await Future.wait([
+      cacheService.saveApps(enrichedApps),
+      if (fingerprint.isNotEmpty) cacheService.saveFingerprint(fingerprint),
+    ]);
 
     return enrichedApps;
   }
@@ -100,13 +111,38 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
     }
   }
 
-  /// Force a full re-scan (e.g. pull-to-refresh).
+  /// Force a re-scan with smart fingerprint checking to avoid unnecessary work.
+  /// Runs heavy operations off the main thread to prevent UI freezing.
+  /// Returns a Future that completes when the refresh is done.
   Future<void> forceRefresh() async {
     final cacheService = ref.read(cacheServiceProvider);
     final service = ref.read(permissionScannerServiceProvider);
     await cacheService.init();
-    state = const AsyncLoading();
-    state = AsyncData(await _performFullScan(service, cacheService));
+
+    try {
+      // Immediately set loading state so UI shows progress
+      state = const AsyncLoading();
+
+      // Yield to the event loop to let UI update before heavy work
+      await Future.delayed(Duration.zero);
+
+      // Check fingerprint first - only rescan if apps changed
+      final fingerprint = await service.getAppsFingerprint();
+      if (fingerprint.isNotEmpty && !cacheService.hasAppsChanged(fingerprint)) {
+        // No changes detected - just return cached data
+        final cachedApps = cacheService.getCachedApps();
+        if (cachedApps.isNotEmpty) {
+          state = AsyncData(cachedApps);
+          return;
+        }
+      }
+
+      // Apps changed or no cache - perform full scan
+      final result = await _performFullScan(service, cacheService);
+      state = AsyncData(result);
+    } catch (e, stackTrace) {
+      state = AsyncError(e, stackTrace);
+    }
   }
 }
 
