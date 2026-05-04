@@ -29,23 +29,38 @@ class CacheService {
     if (_initialized) return;
     await Hive.initFlutter();
     try {
-      // Open all boxes concurrently to reduce sequential I/O wait.
-      final results = await Future.wait([
-        Hive.openBox<String>(_boxName),
-        Hive.openBox<String>(_historyBoxName),
-        Hive.openBox<String>(_justificationBoxName),
-        Hive.openBox<String>(_appCapabilitiesBoxName),
-        Hive.openBox<String>(_metaBoxName),
-      ]);
-      _appsBox = results[0];
-      _historyBox = results[1];
-      _justificationBox = results[2];
-      _capabilitiesBox = results[3];
-      _metaBox = results[4];
+      // Only open critical boxes (meta for fingerprint check).
+      // Other boxes open lazily on demand to speed up init.
+      _metaBox = await Hive.openBox<String>(_metaBoxName);
+      _appsBox = await Hive.openBox<String>(_boxName);
       _initialized = true;
     } catch (e) {
       print('Error initializing cache: $e');
     }
+  }
+
+  Future<void> _ensureHistoryBoxOpen() async {
+    try {
+      if (!_historyBox.isOpen) {
+        _historyBox = await Hive.openBox<String>(_historyBoxName);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _ensureJustificationBoxOpen() async {
+    try {
+      if (!_justificationBox.isOpen) {
+        _justificationBox = await Hive.openBox<String>(_justificationBoxName);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _ensureCapabilitiesBoxOpen() async {
+    try {
+      if (!_capabilitiesBox.isOpen) {
+        _capabilitiesBox = await Hive.openBox<String>(_appCapabilitiesBoxName);
+      }
+    } catch (_) {}
   }
 
   // ── Apps cache (stored as JSON strings) ────────────────────────────
@@ -109,6 +124,7 @@ class CacheService {
 
   Future<void> savePermissionHistory(PermissionHistory history) async {
     try {
+      await _ensureHistoryBoxOpen();
       final key =
           '${history.packageName}_${history.scannedAt.toIso8601String()}';
       await _historyBox.put(key, jsonEncode(history.toJson()));
@@ -117,8 +133,11 @@ class CacheService {
     }
   }
 
-  List<PermissionHistory> getPermissionHistory(String packageName) {
+  Future<List<PermissionHistory>> getPermissionHistory(
+    String packageName,
+  ) async {
     try {
+      await _ensureHistoryBoxOpen();
       final histories = <PermissionHistory>[];
       for (final key in _historyBox.keys) {
         if (key.toString().startsWith(packageName)) {
@@ -140,6 +159,7 @@ class CacheService {
     PermissionJustification justification,
   ) async {
     try {
+      await _ensureJustificationBoxOpen();
       final key = '${justification.packageName}_${justification.permission}';
       await _justificationBox.put(key, jsonEncode(justification.toJson()));
     } catch (e) {
@@ -147,11 +167,12 @@ class CacheService {
     }
   }
 
-  PermissionJustification? getPermissionJustification(
+  Future<PermissionJustification?> getPermissionJustification(
     String packageName,
     String permission,
-  ) {
+  ) async {
     try {
+      await _ensureJustificationBoxOpen();
       final key = '${packageName}_$permission';
       final jsonStr = _justificationBox.get(key);
       if (jsonStr != null) {
@@ -163,8 +184,11 @@ class CacheService {
     return null;
   }
 
-  List<PermissionJustification> getAllJustifications(String packageName) {
+  Future<List<PermissionJustification>> getAllJustifications(
+    String packageName,
+  ) async {
     try {
+      await _ensureJustificationBoxOpen();
       final justifications = <PermissionJustification>[];
       for (final key in _justificationBox.keys) {
         if (key.toString().startsWith(packageName)) {
@@ -188,14 +212,16 @@ class CacheService {
     List<String> capabilities,
   ) async {
     try {
+      await _ensureCapabilitiesBoxOpen();
       await _capabilitiesBox.put(packageName, jsonEncode(capabilities));
     } catch (e) {
       print('Error saving app capabilities: $e');
     }
   }
 
-  List<String> getAppCapabilities(String packageName) {
+  Future<List<String>> getAppCapabilities(String packageName) async {
     try {
+      await _ensureCapabilitiesBoxOpen();
       final json = _capabilitiesBox.get(packageName);
       if (json != null) {
         return List<String>.from(jsonDecode(json) as List);
@@ -217,14 +243,12 @@ class CacheService {
 
   Future<void> clearAllData() async {
     try {
-      // Run all clears concurrently instead of sequentially
-      await Future.wait([
-        _appsBox.clear(),
-        _historyBox.clear(),
-        _justificationBox.clear(),
-        _capabilitiesBox.clear(),
-        _metaBox.clear(),
-      ]);
+      // Clear boxes only if they're open
+      final ops = [_appsBox.clear(), _metaBox.clear()];
+      if (_historyBox.isOpen) ops.add(_historyBox.clear());
+      if (_justificationBox.isOpen) ops.add(_justificationBox.clear());
+      if (_capabilitiesBox.isOpen) ops.add(_capabilitiesBox.clear());
+      await Future.wait(ops);
     } catch (e) {
       print('Error clearing all data: $e');
     }

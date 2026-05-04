@@ -29,15 +29,23 @@ class _PermissionVerificationDialogState
   @override
   void initState() {
     super.initState();
-    selectedCapabilities = widget.cacheService.getAppCapabilities(
+    _loadCapabilities();
+  }
+
+  void _loadCapabilities() async {
+    selectedCapabilities = await widget.cacheService.getAppCapabilities(
       widget.app.packageName,
     );
 
     final relevantCapabilities = _getRelevantCapabilities();
-    capabilitySelection = {
-      for (final cap in relevantCapabilities)
-        cap: selectedCapabilities.contains(cap),
-    };
+    if (mounted) {
+      setState(() {
+        capabilitySelection = {
+          for (final cap in relevantCapabilities)
+            cap: selectedCapabilities.contains(cap),
+        };
+      });
+    }
   }
 
   List<String> _getRelevantCapabilities() {

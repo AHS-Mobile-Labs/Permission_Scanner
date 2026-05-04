@@ -42,7 +42,9 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
 
   void _initializeData() async {
     await cacheService.init();
-    appCapabilities = cacheService.getAppCapabilities(widget.app.packageName);
+    appCapabilities = await cacheService.getAppCapabilities(
+      widget.app.packageName,
+    );
     permissionAnalysis = PermissionJustificationService.analyzePermissions(
       widget.app.permissions,
       appCapabilities,

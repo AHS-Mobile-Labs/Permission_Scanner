@@ -6,12 +6,14 @@ import 'package:permission_scanner/screens/home_screen.dart';
 import 'package:permission_scanner/screens/permission_info_screen.dart';
 import 'package:permission_scanner/screens/dashboard_screen.dart';
 import 'package:permission_scanner/screens/splash_screen.dart';
+import 'package:permission_scanner/screens/about_screen.dart';
 import 'package:permission_scanner/utils/app_colors.dart';
 import 'package:permission_scanner/services/notification_service.dart';
 import 'package:permission_scanner/services/cache_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await CacheService().init(); // Fast init - only opens meta and apps boxes
   runApp(const ProviderScope(child: MyApp()));
 }
 
@@ -36,96 +38,37 @@ class AppInitializer extends StatefulWidget {
 }
 
 class _AppInitializerState extends State<AppInitializer> {
-  bool _initialized = false;
-  double _progress = 0.0;
-  String _statusMessage = 'Starting up...';
-
-  static const Duration _initTimeout = Duration(seconds: 15);
+  bool _showSplash = true;
 
   @override
   void initState() {
     super.initState();
-    _initApp();
+    // Show splash for minimum 300ms for UX polish, then switch to main app
+    // Apps will load asynchronously in the background via providers
+    _hideSplash();
   }
 
-  void _updateProgress(double progress, String message) {
-    if (mounted) {
-      setState(() {
-        _progress = progress;
-        _statusMessage = message;
+  void _hideSplash() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    // Initialize notification service in background (non-blocking)
+    try {
+      await NotificationService().init();
+      // Request notification permission after UI is visible (non-blocking)
+      Future.delayed(const Duration(seconds: 1), () {
+        NotificationService().requestPermission();
       });
-    }
-  }
-
-  Future<void> _initApp() async {
-    try {
-      await Future.any([
-        _performInit(),
-        Future.delayed(_initTimeout).then((_) {
-          // Timeout reached — proceed with whatever is ready
-          if (!_initialized && mounted) {
-            debugPrint('Init timeout reached, proceeding with partial init');
-            setState(() => _initialized = true);
-          }
-        }),
-      ]);
     } catch (e) {
-      debugPrint('Error during app init: $e');
-      // Proceed to main screen even on error to avoid permanent splash
-      if (mounted) {
-        setState(() => _initialized = true);
-      }
+      debugPrint('Notification init error: $e');
     }
-  }
-
-  Future<void> _performInit() async {
-    _updateProgress(0.1, 'Initializing storage...');
-
-    // Run cache and notification init concurrently.
-    // NotificationService.init() only sets up the plugin — it no longer
-    // requests permission (that is deferred to after the main UI loads).
-    await Future.wait<bool>([
-      _safeInit(() => CacheService().init()),
-      _safeInit(() => NotificationService().init()),
-    ]);
-
-    _updateProgress(0.7, 'Preparing interface...');
-
-    // Small yield to let the progress UI repaint before the heavier
-    // widget tree of MainScreen is built.
-    await Future.delayed(const Duration(milliseconds: 120));
-
-    _updateProgress(1.0, 'Ready!');
 
     if (mounted) {
-      setState(() => _initialized = true);
-    }
-
-    // Defer the notification-permission dialog until the main UI is visible
-    // so it never blocks startup.
-    Future.delayed(const Duration(seconds: 2), () {
-      NotificationService().requestPermission();
-    });
-  }
-
-  /// Wraps an async init step so that an individual failure does not crash
-  /// the entire startup sequence.
-  Future<bool> _safeInit(Future<void> Function() work) async {
-    try {
-      await work();
-      return true;
-    } catch (e) {
-      debugPrint('Init step failed: $e');
-      return false;
+      setState(() => _showSplash = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_initialized) {
-      return SplashScreen(progress: _progress, statusMessage: _statusMessage);
-    }
-    return const MainScreen();
+    return _showSplash ? const SplashScreen() : const MainScreen();
   }
 }
 
@@ -189,7 +132,12 @@ class _MainScreenState extends State<MainScreen> {
           actions: [
             IconButton(
               icon: const Icon(Icons.shield_rounded, size: 22),
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AboutScreen()),
+                );
+              },
               tooltip: 'About',
             ),
           ],

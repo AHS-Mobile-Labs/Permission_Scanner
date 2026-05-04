@@ -57,34 +57,49 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
       return cachedApps;
     }
 
-    // ── Cold start: no cache, must scan now ───────────────────────
-    // Show loading state immediately for first launch
-    return _performFullScan(service, cacheService);
+    // ── Cold start: no cache, return basic apps immediately ────────
+    // Return unrich apps immediately, then enrich in background
+    // This prevents the 10-second freeze on first launch
+    try {
+      final apps = await service.getInstalledApps();
+      if (apps.isEmpty) return [];
+
+      // Don't await enrichment - start caching in background
+      unawaited(_enrichAndCache(apps, service, cacheService));
+
+      // Return unenriched apps immediately for fast UI rendering
+      return apps;
+    } catch (e) {
+      print('Error fetching apps on cold start: $e');
+      return [];
+    }
   }
 
-  Future<List<AppInfo>> _performFullScan(
+  /// Enriches apps in the background and updates cache
+  Future<void> _enrichAndCache(
+    List<AppInfo> apps,
     PermissionScannerService service,
     CacheService cacheService,
   ) async {
-    // Fetch apps and fingerprint in parallel to reduce total time
-    final result = await Future.wait([
-      service.getInstalledApps(),
-      service.getAppsFingerprint(),
-    ]);
+    try {
+      // Get fingerprint
+      final fingerprint = await service.getAppsFingerprint();
 
-    final apps = result[0] as List<AppInfo>;
-    final fingerprint = result[1] as String;
+      // Enrich on background isolate to avoid blocking
+      final enrichedApps = await compute(_enrichAppsInBackground, apps);
 
-    // Enrich apps on background isolate
-    final enrichedApps = await compute(_enrichAppsInBackground, apps);
+      // Update cache
+      await cacheService.saveApps(enrichedApps);
+      if (fingerprint.isNotEmpty) {
+        await cacheService.saveFingerprint(fingerprint);
+      }
 
-    // Persist enriched apps and fingerprint in parallel
-    await Future.wait([
-      cacheService.saveApps(enrichedApps),
-      if (fingerprint.isNotEmpty) cacheService.saveFingerprint(fingerprint),
-    ]);
-
-    return enrichedApps;
+      // Update state with enriched apps
+      state = AsyncData(enrichedApps);
+    } catch (e) {
+      print('Error enriching apps: $e');
+      // Keep the unenriched apps - don't fail
+    }
   }
 
   /// Checks the fingerprint and only re-scans if installed apps have changed.
@@ -137,9 +152,10 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
         }
       }
 
-      // Apps changed or no cache - perform full scan
-      final result = await _performFullScan(service, cacheService);
-      state = AsyncData(result);
+      // Apps changed or no cache - fetch and enrich
+      final apps = await service.getInstalledApps();
+      await _enrichAndCache(apps, service, cacheService);
+      state = AsyncData(apps);
     } catch (e, stackTrace) {
       state = AsyncError(e, stackTrace);
     }
