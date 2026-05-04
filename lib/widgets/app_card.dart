@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:permission_scanner/models/app_info.dart';
 import 'package:permission_scanner/utils/app_colors.dart';
@@ -41,19 +42,35 @@ class AppCard extends StatelessWidget {
                     height: 48,
                     color: AppColors.surfaceVariant,
                     child: app.iconPath != null && app.iconPath!.isNotEmpty
-                        ? Image.memory(
-                            base64Decode(app.iconPath!),
-                            width: 48,
-                            height: 48,
-                            fit: BoxFit.cover,
-                            filterQuality: FilterQuality.medium,
-                            cacheWidth: 96,
-                            errorBuilder: (_, _, _) => const Icon(
-                              Icons.apps_rounded,
-                              size: 26,
-                              color: AppColors.primary,
-                            ),
-                          )
+                        ? (app.iconPath!.startsWith('/')
+                              // Optimized: File path (no base64 decode needed)
+                              ? Image.file(
+                                  File(app.iconPath!),
+                                  width: 48,
+                                  height: 48,
+                                  fit: BoxFit.cover,
+                                  filterQuality: FilterQuality.medium,
+                                  cacheWidth: 96,
+                                  errorBuilder: (_, _, _) => const Icon(
+                                    Icons.apps_rounded,
+                                    size: 26,
+                                    color: AppColors.primary,
+                                  ),
+                                )
+                              // Fallback: Still base64 (for backwards compatibility)
+                              : Image.memory(
+                                  base64Decode(app.iconPath!),
+                                  width: 48,
+                                  height: 48,
+                                  fit: BoxFit.cover,
+                                  filterQuality: FilterQuality.medium,
+                                  cacheWidth: 96,
+                                  errorBuilder: (_, _, _) => const Icon(
+                                    Icons.apps_rounded,
+                                    size: 26,
+                                    color: AppColors.primary,
+                                  ),
+                                ))
                         : const Icon(
                             Icons.apps_rounded,
                             size: 26,

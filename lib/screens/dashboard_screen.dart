@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -772,19 +773,35 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     height: 44,
                     color: AppColors.surfaceVariant,
                     child: app.iconPath != null && app.iconPath!.isNotEmpty
-                        ? Image.memory(
-                            base64Decode(app.iconPath!),
-                            width: 44,
-                            height: 44,
-                            fit: BoxFit.cover,
-                            filterQuality: FilterQuality.medium,
-                            cacheWidth: 88,
-                            errorBuilder: (_, _, _) => const Icon(
-                              Icons.apps_rounded,
-                              size: 24,
-                              color: AppColors.primary,
-                            ),
-                          )
+                        ? (app.iconPath!.startsWith('/')
+                              // Optimized: File path (no base64 decode needed)
+                              ? Image.file(
+                                  File(app.iconPath!),
+                                  width: 44,
+                                  height: 44,
+                                  fit: BoxFit.cover,
+                                  filterQuality: FilterQuality.medium,
+                                  cacheWidth: 88,
+                                  errorBuilder: (_, _, _) => const Icon(
+                                    Icons.apps_rounded,
+                                    size: 24,
+                                    color: AppColors.primary,
+                                  ),
+                                )
+                              // Fallback: Still base64 (for backwards compatibility)
+                              : Image.memory(
+                                  base64Decode(app.iconPath!),
+                                  width: 44,
+                                  height: 44,
+                                  fit: BoxFit.cover,
+                                  filterQuality: FilterQuality.medium,
+                                  cacheWidth: 88,
+                                  errorBuilder: (_, _, _) => const Icon(
+                                    Icons.apps_rounded,
+                                    size: 24,
+                                    color: AppColors.primary,
+                                  ),
+                                ))
                         : const Icon(
                             Icons.apps_rounded,
                             size: 24,

@@ -93,4 +93,14 @@ class PermissionScannerService {
       return [];
     }
   }
+
+  /// Clears the native icon cache on Android
+  /// Useful when user requests a refresh or for cleanup
+  Future<void> clearNativeIconCache() async {
+    try {
+      await platform.invokeMethod<void>('clearIconCache');
+    } catch (e) {
+      print('Error clearing native icon cache: $e');
+    }
+  }
 }

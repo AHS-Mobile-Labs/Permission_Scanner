@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_scanner/models/app_info.dart';
@@ -142,17 +143,31 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
                             widget.app.iconPath!.isNotEmpty
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(18),
-                            child: Image.memory(
-                              _decodeBase64Icon(widget.app.iconPath!),
-                              fit: BoxFit.cover,
-                              filterQuality: FilterQuality.medium,
-                              cacheWidth: 144,
-                              errorBuilder: (_, _, _) => const Icon(
-                                Icons.apps_rounded,
-                                size: 36,
-                                color: AppColors.primary,
-                              ),
-                            ),
+                            child: widget.app.iconPath!.startsWith('/')
+                                // Optimized: File path (no base64 decode needed)
+                                ? Image.file(
+                                    File(widget.app.iconPath!),
+                                    fit: BoxFit.cover,
+                                    filterQuality: FilterQuality.medium,
+                                    cacheWidth: 144,
+                                    errorBuilder: (_, _, _) => const Icon(
+                                      Icons.apps_rounded,
+                                      size: 36,
+                                      color: AppColors.primary,
+                                    ),
+                                  )
+                                // Fallback: Still base64 (for backwards compatibility)
+                                : Image.memory(
+                                    _decodeBase64Icon(widget.app.iconPath!),
+                                    fit: BoxFit.cover,
+                                    filterQuality: FilterQuality.medium,
+                                    cacheWidth: 144,
+                                    errorBuilder: (_, _, _) => const Icon(
+                                      Icons.apps_rounded,
+                                      size: 36,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
                           )
                         : const Icon(
                             Icons.apps_rounded,

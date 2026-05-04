@@ -13,6 +13,7 @@ import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.security.MessageDigest
 
 class PermissionScanner(private val context: Context) {
@@ -162,6 +163,22 @@ class PermissionScanner(private val context: Context) {
                (app.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
     }
 
+    /**
+     * Clears the app icon cache directory.
+     * Useful when user requests a refresh or for cleanup.
+     */
+    fun clearIconCache() {
+        try {
+            val cacheDir = context.cacheDir
+            val iconCacheDir = File(cacheDir, "app_icons")
+            if (iconCacheDir.exists()) {
+                iconCacheDir.deleteRecursively()
+            }
+        } catch (e: Exception) {
+            // Silently ignore cache clear errors
+        }
+    }
+
     private fun getAppIcon(app: ApplicationInfo): String {
         return try {
             val drawable: Drawable = packageManager.getApplicationIcon(app)
@@ -177,10 +194,26 @@ class PermissionScanner(private val context: Context) {
                 bmp
             }
             val scaled = Bitmap.createScaledBitmap(bitmap, 192, 192, true)
-            val stream = ByteArrayOutputStream()
-            scaled.compress(Bitmap.CompressFormat.PNG, 100, stream)
-            val byteArray = stream.toByteArray()
-            Base64.encodeToString(byteArray, Base64.NO_WRAP)
+            
+            // NEW: Save to file instead of base64
+            // This eliminates expensive base64 decoding on every widget rebuild
+            val cacheDir = context.cacheDir
+            val iconCacheDir = File(cacheDir, "app_icons")
+            if (!iconCacheDir.exists()) {
+                iconCacheDir.mkdirs()
+            }
+            
+            val iconFile = File(iconCacheDir, "${app.packageName}.png")
+            
+            // Only write if file doesn't already exist (avoid redundant I/O)
+            if (!iconFile.exists()) {
+                val stream = java.io.FileOutputStream(iconFile)
+                scaled.compress(Bitmap.CompressFormat.PNG, 85, stream)
+                stream.close()
+            }
+            
+            // Return file path instead of base64 string
+            iconFile.absolutePath
         } catch (e: Exception) {
             ""
         }

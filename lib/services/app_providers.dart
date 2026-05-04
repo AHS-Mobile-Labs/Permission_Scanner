@@ -5,6 +5,7 @@ import 'package:permission_scanner/models/permission_justification.dart';
 import 'package:permission_scanner/services/permission_scanner_service.dart';
 import 'package:permission_scanner/services/permission_analyzer.dart';
 import 'package:permission_scanner/services/cache_service.dart';
+import 'package:permission_scanner/services/icon_cache_service.dart';
 import 'package:permission_scanner/utils/permission_database.dart';
 import 'dart:async';
 
@@ -76,6 +77,7 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
   }
 
   /// Enriches apps in the background and updates cache
+  /// Also caches icons to files to eliminate base64 decoding on every render
   Future<void> _enrichAndCache(
     List<AppInfo> apps,
     PermissionScannerService service,
@@ -88,6 +90,10 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
       // Enrich on background isolate to avoid blocking
       final enrichedApps = await compute(_enrichAppsInBackground, apps);
 
+      // Cache icons in parallel to avoid blocking
+      // Icons are cached from base64 to PNG files for fast rendering
+      unawaited(_cacheIconsInBackground(enrichedApps));
+
       // Update cache
       await cacheService.saveApps(enrichedApps);
       if (fingerprint.isNotEmpty) {
@@ -99,6 +105,27 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
     } catch (e) {
       print('Error enriching apps: $e');
       // Keep the unenriched apps - don't fail
+    }
+  }
+
+  /// Caches all app icons from base64 to PNG files in background
+  /// This eliminates expensive base64 decode operations during rendering
+  Future<void> _cacheIconsInBackground(List<AppInfo> apps) async {
+    try {
+      for (final app in apps) {
+        if (app.iconPath != null && app.iconPath!.isNotEmpty) {
+          // Try to detect if already a file path (starts with /)
+          if (!app.iconPath!.startsWith('/')) {
+            await IconCacheService.cacheIconFromBase64(
+              app.iconPath!,
+              app.packageName,
+            );
+          }
+        }
+      }
+      print('✓ Icon caching completed for ${apps.length} apps');
+    } catch (e) {
+      print('Error caching icons: $e');
     }
   }
 
@@ -115,6 +142,9 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
 
       final freshApps = await service.getInstalledApps();
       final enrichedApps = await compute(_enrichAppsInBackground, freshApps);
+
+      // Cache icons in background
+      unawaited(_cacheIconsInBackground(enrichedApps));
 
       await cacheService.saveApps(enrichedApps);
       await cacheService.saveFingerprint(fingerprint);
@@ -155,7 +185,13 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
       // Apps changed or no cache - fetch and enrich
       final apps = await service.getInstalledApps();
       await _enrichAndCache(apps, service, cacheService);
-      state = AsyncData(apps);
+
+      // Update state with refreshed apps
+      final refreshedApps = await state.maybeWhen(
+        data: (data) => Future.value(data),
+        orElse: () => Future.value(apps),
+      );
+      state = AsyncData(refreshedApps);
     } catch (e, stackTrace) {
       state = AsyncError(e, stackTrace);
     }

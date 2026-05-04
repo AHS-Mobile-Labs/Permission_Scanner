@@ -32,6 +32,15 @@ class MainActivity : FlutterActivity() {
                         result.error("FINGERPRINT_ERROR", e.message, null)
                     }
                 }
+                "clearIconCache" -> {
+                    try {
+                        val scanner = PermissionScanner(this)
+                        scanner.clearIconCache()
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("CACHE_CLEAR_ERROR", e.message, null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
