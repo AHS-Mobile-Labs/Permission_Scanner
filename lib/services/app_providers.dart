@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_scanner/models/app_info.dart';
 import 'package:permission_scanner/models/permission_justification.dart';
+import 'package:permission_scanner/models/loading_progress.dart';
 import 'package:permission_scanner/services/permission_scanner_service.dart';
 import 'package:permission_scanner/services/permission_analyzer.dart';
 import 'package:permission_scanner/services/cache_service.dart';
@@ -20,6 +21,115 @@ final permissionScannerServiceProvider = Provider((_) {
 final cacheServiceProvider = Provider((_) {
   return CacheService();
 });
+
+/// Loading progress provider that tracks initialization stages.
+///
+/// Emits updates as the app loads through these stages:
+/// - Stage 0 (0-20%): Initialize cache & prepare native bridge
+/// - Stage 1 (20-50%): Fetch installed apps from native
+/// - Stage 2 (50-75%): Enrich app data (risk analysis, privacy scores)
+/// - Stage 3 (75-100%): Cache icons & finalize state
+///
+/// Watch this provider to update the splash screen in real time.
+final loadingProgressProvider =
+    StateNotifierProvider<LoadingProgressNotifier, LoadingProgress>(
+      (ref) => LoadingProgressNotifier(ref),
+    );
+
+class LoadingProgressNotifier extends StateNotifier<LoadingProgress> {
+  final Ref ref;
+
+  LoadingProgressNotifier(this.ref) : super(const LoadingProgress.initial()) {
+    _initializeProgressTracking();
+  }
+
+  void _initializeProgressTracking() {
+    // Listen to installedAppsProvider state changes to update progress
+    ref.listen(installedAppsProvider, (previous, next) {
+      next.when(
+        data: (apps) {
+          // Data loaded successfully
+          if (apps.isNotEmpty) {
+            state = const LoadingProgress.complete();
+          }
+        },
+        loading: () {
+          // Still loading - update to show intermediate progress
+          _updateProgress(
+            stage: 2,
+            percentage: 50,
+            message: 'Fetching apps...',
+          );
+        },
+        error: (error, stack) {
+          // Error during loading - show meaningful message
+          _updateProgress(
+            stage: 3,
+            percentage: 100,
+            message: 'Error loading apps',
+          );
+        },
+      );
+    });
+
+    // Initial progress update - start the sequence
+    _updateProgress(stage: 0, percentage: 10, message: 'Starting up...');
+
+    // Simulate progress through stages for better UX
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (state.percentage < 20) {
+        _updateProgress(stage: 0, percentage: 20, message: 'Initializing...');
+      }
+    });
+
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (state.percentage < 40) {
+        _updateProgress(stage: 1, percentage: 40, message: 'Scanning apps...');
+      }
+    });
+
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      if (state.percentage < 60) {
+        _updateProgress(
+          stage: 2,
+          percentage: 60,
+          message: 'Analyzing permissions...',
+        );
+      }
+    });
+  }
+
+  /// Update progress state with smooth transitions
+  void _updateProgress({
+    required int stage,
+    required int percentage,
+    required String message,
+    Duration? estimatedTime,
+  }) {
+    // Only allow percentage to move forward (no backward jumps)
+    if (percentage < state.percentage && state.percentage < 100) {
+      return;
+    }
+
+    state = LoadingProgress(
+      stage: stage,
+      percentage: percentage,
+      message: message,
+      estimatedTime: estimatedTime,
+      isComplete: percentage >= 100,
+    );
+  }
+
+  /// Mark loading as complete (called by app after apps are fully ready)
+  void markComplete() {
+    state = const LoadingProgress.complete();
+  }
+
+  /// Skip to completion (for user tap "Skip" button)
+  void skipLoading() {
+    state = const LoadingProgress.complete();
+  }
+}
 
 /// Enriches a list of apps on a background isolate using [compute].
 /// This prevents the heavy permission-analysis work from blocking the UI.

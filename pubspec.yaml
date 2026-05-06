@@ -58,6 +58,7 @@ flutter:
 
   assets:
     - asset/icon/Permission Scanner.png
+    - asset/icon/qr_linktree.png
 
 flutter_launcher_icons:
   android: "ic_launcher"

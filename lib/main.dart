@@ -10,6 +10,7 @@ import 'package:permission_scanner/screens/about_screen.dart';
 import 'package:permission_scanner/utils/app_colors.dart';
 import 'package:permission_scanner/services/notification_service.dart';
 import 'package:permission_scanner/services/cache_service.dart';
+import 'package:permission_scanner/services/app_providers.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,27 +31,24 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AppInitializer extends StatefulWidget {
+class AppInitializer extends ConsumerStatefulWidget {
   const AppInitializer({super.key});
 
   @override
-  State<AppInitializer> createState() => _AppInitializerState();
+  ConsumerState<AppInitializer> createState() => _AppInitializerState();
 }
 
-class _AppInitializerState extends State<AppInitializer> {
-  bool _showSplash = true;
+class _AppInitializerState extends ConsumerState<AppInitializer> {
+  bool _userSkippedLoading = false;
 
   @override
   void initState() {
     super.initState();
-    // Show splash for minimum 300ms for UX polish, then switch to main app
-    // Apps will load asynchronously in the background via providers
-    _hideSplash();
+    // Initialize notification service in background (non-blocking)
+    _initializeNotifications();
   }
 
-  void _hideSplash() async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    // Initialize notification service in background (non-blocking)
+  void _initializeNotifications() async {
     try {
       await NotificationService().init();
       // Request notification permission after UI is visible (non-blocking)
@@ -60,15 +58,31 @@ class _AppInitializerState extends State<AppInitializer> {
     } catch (e) {
       debugPrint('Notification init error: $e');
     }
+  }
 
-    if (mounted) {
-      setState(() => _showSplash = false);
-    }
+  void _handleSkip() {
+    // User tapped skip - mark as skipped and move to main screen
+    setState(() => _userSkippedLoading = true);
   }
 
   @override
   Widget build(BuildContext context) {
-    return _showSplash ? const SplashScreen() : const MainScreen();
+    // Watch the loading progress provider
+    final loadingProgress = ref.watch(loadingProgressProvider);
+
+    // Show splash if:
+    // 1. Loading not yet complete AND user hasn't skipped
+    // 2. Keep showing splash for minimum visual polish
+    final shouldShowSplash =
+        (!loadingProgress.isComplete && !_userSkippedLoading) ||
+        (loadingProgress.percentage < 5);
+
+    if (shouldShowSplash) {
+      return SplashScreen(onSkip: _handleSkip);
+    }
+
+    // Loading complete or user skipped - show main app
+    return const MainScreen();
   }
 }
 
