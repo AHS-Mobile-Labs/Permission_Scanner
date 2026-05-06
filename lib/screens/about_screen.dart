@@ -98,7 +98,7 @@ class AboutScreen extends StatelessWidget {
                       ),
                     ),
                     child: const Text(
-                      'v1.0.0',
+                      'v1.0.1',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
