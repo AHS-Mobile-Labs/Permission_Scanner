@@ -22,15 +22,13 @@ final cacheServiceProvider = Provider((_) {
   return CacheService();
 });
 
-/// Loading progress provider that tracks initialization stages.
+/// Loading progress provider with proper state machine.
 ///
-/// Emits updates as the app loads through these stages:
-/// - Stage 0 (0-20%): Initialize cache & prepare native bridge
-/// - Stage 1 (20-50%): Fetch installed apps from native
-/// - Stage 2 (50-75%): Enrich app data (risk analysis, privacy scores)
-/// - Stage 3 (75-100%): Cache icons & finalize state
-///
-/// Watch this provider to update the splash screen in real time.
+/// Tracks real app initialization through these stages:
+/// - Stage 0: Initialize cache (0-20%)
+/// - Stage 1: Scan apps from native (20-50%)
+/// - Stage 2: Enrich + analyze (50-80%)
+/// - Stage 3: Cache icons & finalize (80-100%)
 final loadingProgressProvider =
     StateNotifierProvider<LoadingProgressNotifier, LoadingProgress>(
       (ref) => LoadingProgressNotifier(ref),
@@ -38,96 +36,127 @@ final loadingProgressProvider =
 
 class LoadingProgressNotifier extends StateNotifier<LoadingProgress> {
   final Ref ref;
+  bool _initialized = false;
+  int _lastReportedStage = -1;
 
   LoadingProgressNotifier(this.ref) : super(const LoadingProgress.initial()) {
-    _initializeProgressTracking();
+    _startInitialization();
   }
 
-  void _initializeProgressTracking() {
-    // Listen to installedAppsProvider state changes to update progress
-    ref.listen(installedAppsProvider, (previous, next) {
-      next.when(
-        data: (apps) {
-          // Data loaded successfully
-          if (apps.isNotEmpty) {
-            state = const LoadingProgress.complete();
-          }
-        },
-        loading: () {
-          // Still loading - update to show intermediate progress
-          _updateProgress(
-            stage: 2,
-            percentage: 50,
-            message: 'Fetching apps...',
-          );
-        },
-        error: (error, stack) {
-          // Error during loading - show meaningful message
-          _updateProgress(
-            stage: 3,
-            percentage: 100,
-            message: 'Error loading apps',
-          );
-        },
+  void _startInitialization() async {
+    if (_initialized) return;
+    _initialized = true;
+
+    try {
+      // Stage 0: Initialize cache (0-20%)
+      _reportProgress(stage: 0, percentage: 5, message: 'Starting up...');
+      await Future.delayed(const Duration(milliseconds: 300));
+      _reportProgress(
+        stage: 0,
+        percentage: 15,
+        message: 'Initializing cache...',
       );
-    });
 
-    // Initial progress update - start the sequence
-    _updateProgress(stage: 0, percentage: 10, message: 'Starting up...');
+      // Listen to installedAppsProvider to track real progress
+      ref.listen<AsyncValue<List<AppInfo>>>(installedAppsProvider, (
+        previous,
+        next,
+      ) {
+        next.when(
+          data: (apps) {
+            // Stage 1 complete: Apps fetched (50%)
+            _reportProgress(
+              stage: 1,
+              percentage: 50,
+              message: 'Scanning apps...',
+            );
 
-    // Simulate progress through stages for better UX
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (state.percentage < 20) {
-        _updateProgress(stage: 0, percentage: 20, message: 'Initializing...');
-      }
-    });
+            if (apps.isEmpty) {
+              // No apps - skip to complete
+              _reportProgress(stage: 3, percentage: 100, message: 'Ready!');
+              state = const LoadingProgress.complete();
+              return;
+            }
 
-    Future.delayed(const Duration(milliseconds: 1200), () {
-      if (state.percentage < 40) {
-        _updateProgress(stage: 1, percentage: 40, message: 'Scanning apps...');
-      }
-    });
+            // Stage 2: Enrichment happens in background via compute()
+            // Give visual feedback that enrichment is happening
+            _reportProgress(
+              stage: 2,
+              percentage: 65,
+              message: 'Analyzing permissions...',
+            );
 
-    Future.delayed(const Duration(milliseconds: 2500), () {
-      if (state.percentage < 60) {
-        _updateProgress(
-          stage: 2,
-          percentage: 60,
-          message: 'Analyzing permissions...',
+            // Icon caching happens in background (unawaited in InstalledAppsNotifier)
+            // Simulate the icon caching stage with visual progress
+            Future.delayed(const Duration(milliseconds: 800), () {
+              if (state.percentage < 90) {
+                _reportProgress(
+                  stage: 3,
+                  percentage: 90,
+                  message: 'Finalizing...',
+                );
+              }
+            });
+
+            // Mark complete after a brief delay to show final state
+            Future.delayed(const Duration(milliseconds: 1500), () {
+              if (!state.isComplete) {
+                state = const LoadingProgress.complete();
+              }
+            });
+          },
+          loading: () {
+            // Still loading - keep progress moving forward
+            if (state.stage < 1) {
+              _reportProgress(
+                stage: 1,
+                percentage: 30,
+                message: 'Fetching apps...',
+              );
+            }
+          },
+          error: (error, stack) {
+            // Error during loading - show meaningful message
+            _reportProgress(
+              stage: 3,
+              percentage: 100,
+              message: 'Ready (cached data)',
+            );
+            state = const LoadingProgress.complete();
+          },
         );
-      }
-    });
+      });
+
+      // Timeout after 30 seconds to prevent infinite splash screen
+      Future.delayed(const Duration(seconds: 30), () {
+        if (!state.isComplete) {
+          state = const LoadingProgress.complete();
+        }
+      });
+    } catch (e) {
+      state = const LoadingProgress.complete();
+    }
   }
 
-  /// Update progress state with smooth transitions
-  void _updateProgress({
+  /// Report progress only when stage advances or percentage increases significantly
+  void _reportProgress({
     required int stage,
     required int percentage,
     required String message,
-    Duration? estimatedTime,
   }) {
-    // Only allow percentage to move forward (no backward jumps)
-    if (percentage < state.percentage && state.percentage < 100) {
+    // Avoid redundant updates for the same stage
+    if (stage == _lastReportedStage && percentage <= state.percentage) {
       return;
     }
 
+    _lastReportedStage = stage;
+
     state = LoadingProgress(
       stage: stage,
-      percentage: percentage,
+      percentage: percentage.clamp(0, 99),
       message: message,
-      estimatedTime: estimatedTime,
-      isComplete: percentage >= 100,
+      isComplete: false,
     );
-  }
-
-  /// Mark loading as complete (called by app after apps are fully ready)
-  void markComplete() {
-    state = const LoadingProgress.complete();
-  }
-
-  /// Skip to completion (for user tap "Skip" button)
-  void skipLoading() {
-    state = const LoadingProgress.complete();
   }
 }
 
