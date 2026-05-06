@@ -103,6 +103,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     letterSpacing: -0.5,
                   ),
                 ),
+                const SizedBox(height: 4),
+
+                // Company Attribution
+                Text(
+                  'by AHS Mobile Labs',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textLight,
+                    letterSpacing: 0.3,
+                  ),
+                ),
                 const SizedBox(height: 8),
 
                 // Status Message - Animated with smooth transitions

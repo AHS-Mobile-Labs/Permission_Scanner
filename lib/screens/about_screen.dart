@@ -328,13 +328,13 @@ class AboutScreen extends StatelessWidget {
                   'Made with ❤️ by AHS Mobile Labs',
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.textDark,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '© 2026 AHS Mobile Labs',
+                  '© 2026 AHS Mobile Labs • Privacy First • Open Source',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w400,
