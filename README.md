@@ -34,10 +34,17 @@
 ## Screenshots
 
 <p align="center">
-  <img src="asset/github-img/%231/Screenshot_20260413_173040.jpg" width="180" alt="Security Dashboard" />
-  <img src="asset/github-img/%231/Screenshot_20260413_173051.jpg" width="180" alt="App List" />
-  <img src="asset/github-img/%231/Screenshot_20260413_173105.jpg" width="180" alt="Permission Info" />
-  <img src="asset/github-img/%231/Screenshot_20260413_173114.jpg" width="180" alt="Dashboard Risk Filter" />
+  <img src="asset/github-img/%232/Screenshot_20260531_203233.jpg" width="180" alt="Security Dashboard" />
+  <img src="asset/github-img/%232/Screenshot_20260531_203248.jpg" width="180" alt="App List" />
+  <img src="asset/github-img/%232/Screenshot_20260531_203314.jpg" width="180" alt="App Details" />
+  <img src="asset/github-img/%232/Screenshot_20260531_203354.jpg" width="180" alt="Permission Info" />
+  <img src="asset/github-img/%232/Screenshot_20260531_203403.jpg" width="180" alt="Privacy Timeline" />
+  <img src="asset/github-img/%232/Screenshot_20260531_203428.jpg" width="180" alt="Privacy Tools" />
+  <img src="asset/github-img/%232/Screenshot_20260531_203433.jpg" width="180" alt="APK Scanner" />
+  <img src="asset/github-img/%232/Screenshot_20260531_203436.jpg" width="180" alt="App Compare" />
+  <img src="asset/github-img/%232/Screenshot_20260531_203438.jpg" width="180" alt="About" />
+  <img src="asset/github-img/%232/Screenshot_20260531_203443.jpg" width="180" alt="Privacy Policy" />
+  <img src="asset/github-img/%232/Screenshot_20260531_203446.jpg" width="180" alt="Settings" />
 </p>
 
 ## Architecture
