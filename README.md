@@ -5,31 +5,38 @@
 <h1 align="center">Permission Scanner</h1>
 
 <p align="center">
-  A lightweight Android app that reveals exactly what permissions every installed app holds — and whether they actually need them.
+  An Android privacy companion that scans installed apps and APK files, explains their permissions, and highlights risky behavior before it becomes invisible.
 </p>
 
 <p align="center">
-  <img alt="Flutter" src="https://img.shields.io/badge/Flutter-3.11+-02569B?logo=flutter&logoColor=white" />
-  <img alt="Dart" src="https://img.shields.io/badge/Dart-3.11+-0175C2?logo=dart&logoColor=white" />
+  <img alt="Flutter" src="https://img.shields.io/badge/Flutter-stable-02569B?logo=flutter&logoColor=white" />
+  <img alt="Dart" src="https://img.shields.io/badge/Dart-%5E3.11.1-0175C2?logo=dart&logoColor=white" />
   <img alt="Platform" src="https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white" />
+  <img alt="Version" src="https://img.shields.io/badge/version-1.0.2%2B3-brightgreen" />
   <img alt="License" src="https://img.shields.io/github/license/AHS-Mobile-Labs/Permission_Scanner" />
-  <img alt="Release" src="https://img.shields.io/github/v/release/AHS-Mobile-Labs/Permission_Scanner?color=brightgreen&logo=github" />
 </p>
 
 ---
 
+## Overview
+
+Permission Scanner gives Android users a readable view of what each installed app can access. It combines package-level permission scanning, local risk analysis, app comparison, APK pre-install checks, privacy timelines, and exportable reports in one Flutter app.
+
+The app is designed to be transparent: scanning happens through native Android APIs, analysis runs locally, and the codebase keeps permission explanations and risk rules easy to inspect.
+
 ## Features
 
-- **Full app scan** — scans every installed app via a native `MethodChannel`, returning permissions, install source, and system flag
-- **Risk analysis** — assigns each app a privacy score (0–100) and risk level (safe / medium / dangerous) based on dangerous permission count
-- **Justification engine** — maps app capabilities (e.g. "Take Photos") to the permissions they require and flags unjustified access
-- **Smart caching** — fingerprint-based cache invalidation means the UI loads instantly on repeat visits; only re-scans when apps change
-- **Interactive dashboard** — animated security score ring, risk distribution bar, quick actions, and per-app tiles
-- **Permission database** — searchable reference of all Android permissions with descriptions, grouped by category
-- **Notifications** — optional local alerts when a newly installed app requests a high number of dangerous permissions
-- **Filter & sort** — segment by user apps, system apps, or unknown sources; sort by name or risk level
-- **Developer mode** — toggle to reveal low-level / non-dangerous permissions on the detail screen
-- **Verification dialog** — tag an app's capabilities and see which permissions are justified by those capabilities
+- **Installed app scanner** - reads installed packages through a native `MethodChannel` and returns permissions, install source, system app status, SDK data, trackers, services, receivers, and app metadata.
+- **SDK detection** - detects each app's target SDK and minimum SDK to help identify outdated apps or apps built against older Android privacy rules.
+- **Privacy risk scoring** - calculates a 0-100 privacy score and classifies apps as safe, medium, dangerous, or critical based on dangerous permissions and high-risk behavior signals.
+- **Security dashboard** - summarizes overall device risk, permission exposure, risky apps, and recent permission changes.
+- **App detail view** - shows permission groups, risk signals, install details, trackers, and developer-level permission data.
+- **Permission justification** - maps common app capabilities to required permissions and helps spot access that does not match an app's purpose.
+- **APK scanner** - scans an APK file before installation and reports permissions, trackers, packers, overlays, accessibility use, background behavior, and spyware indicators.
+- **App comparison** - compares two installed apps across permission count, dangerous permissions, trackers, background services, auto-start behavior, internet data risk, and open-source status.
+- **Privacy tools** - includes a permission library, timeline view, report export, privacy policy, and project transparency links.
+- **Smart caching** - uses Hive and package fingerprints to avoid unnecessary full rescans when the installed app set has not changed.
+- **Local alerts** - optionally sends notifications when high-risk permission patterns are detected.
 
 ## Screenshots
 
@@ -47,60 +54,48 @@
   <img src="asset/github-img/%232/Screenshot_20260531_203446.jpg" width="180" alt="Settings" />
 </p>
 
-## Architecture
+## Tech Stack
 
-```
-lib/
-├── main.dart                          # App entry, splash → main flow
-├── models/
-│   ├── app_info.dart                  # AppInfo model with RiskLevel enum
-│   ├── permission_info.dart           # PermissionInfo model
-│   └── permission_justification.dart  # Capability → permission mapping
-├── screens/
-│   ├── splash_screen.dart             # Animated splash with progress
-│   ├── home_screen.dart               # App list with search & filters
-│   ├── app_detail_screen.dart         # Per-app permission breakdown
-│   ├── permission_info_screen.dart    # Permission reference database
-│   └── dashboard_screen.dart          # Security overview dashboard
-├── services/
-│   ├── app_providers.dart             # Riverpod state providers
-│   ├── cache_service.dart             # Hive-backed cache (5 boxes)
-│   ├── notification_service.dart      # Local notification service
-│   ├── permission_analyzer.dart       # Risk scoring & analysis
-│   ├── permission_justification_service.dart
-│   └── permission_scanner_service.dart # Native bridge
-├── utils/
-│   ├── app_colors.dart                # Material 3 theme & palette
-│   └── permission_database.dart       # Permission definitions
-└── widgets/
-    ├── app_card.dart
-    ├── filter_sort_bar.dart
-    ├── permission_history_chart.dart
-    ├── permission_item.dart
-    ├── permission_verification_dialog.dart
-    ├── risk_badge.dart
-    └── stat_card.dart
-```
-
-### Key design decisions
-
-| Pattern | Detail |
+| Area | Technology |
 |---|---|
-| State management | `flutter_riverpod` — `AsyncNotifierProvider` for app list, `StateProvider` for filters |
-| Caching | Hive with 5 boxes; fingerprint check avoids redundant native calls |
-| Background work | `compute()` isolate for permission enrichment off the main thread |
-| Native bridge | `MethodChannel('permission_scanner')` with `getInstalledApps` / `getAppsFingerprint` |
-| Risk scoring | 100 − (10 × dangerous permissions), clamped 0–100; justification can reduce risk one level |
+| App framework | Flutter |
+| Language | Dart |
+| State management | `flutter_riverpod` |
+| Local cache | `hive`, `hive_flutter` |
+| Charts | `fl_chart` |
+| Notifications | `flutter_local_notifications` |
+| Permissions | `permission_handler` |
+| Native integration | Android `MethodChannel('permission_scanner')` |
 
-## Getting started
+## Project Structure
+
+```text
+lib/
+├── main.dart                         # App bootstrap, splash flow, bottom navigation
+├── models/                           # App, permission, loading, and justification models
+├── screens/                          # Dashboard, app list, details, compare, tools, APK scan, policy
+├── services/                         # Native scanner, cache, providers, risk analysis, notifications
+├── utils/                            # Theme, colors, and permission database
+└── widgets/                          # Reusable app cards, badges, filters, charts, dialogs
+
+android/
+└── app/src/main/                     # Android manifest and native MethodChannel implementation
+
+asset/
+├── icon/                             # App icons and QR asset
+└── github-img/                       # README screenshots
+```
+
+## Getting Started
 
 ### Prerequisites
 
-- Flutter SDK ≥ 3.11.1
-- Android SDK (minSdk 21 / targetSdk 35)
-- An Android device or emulator
+- Flutter stable SDK with Dart `^3.11.1`
+- Android SDK
+- Android device or emulator
+- Java/Kotlin toolchain supported by your Flutter installation
 
-### Build & run
+### Run Locally
 
 ```bash
 git clone https://github.com/AHS-Mobile-Labs/Permission_Scanner.git
@@ -109,39 +104,64 @@ flutter pub get
 flutter run
 ```
 
-### Generate launcher icon
+### Analyze and Test
+
+```bash
+flutter analyze
+flutter test
+```
+
+### Build APK
+
+```bash
+flutter build apk --release
+```
+
+### Generate Launcher Icons
 
 ```bash
 dart run flutter_launcher_icons
 ```
 
-## Permissions
+## Android Permissions
 
-| Permission | Why |
+| Permission | Purpose |
 |---|---|
-| `QUERY_ALL_PACKAGES` | Read the permission manifest of every installed app |
-| `POST_NOTIFICATIONS` | Send local alerts for high-risk apps (requested at runtime, non-blocking) |
+| `QUERY_ALL_PACKAGES` | Allows the app to inspect installed packages and their declared permissions. |
+| `POST_NOTIFICATIONS` | Enables optional local alerts about risky app permission patterns on supported Android versions. |
+| `WRITE_EXTERNAL_STORAGE` | Used only on Android 9 and below for exporting reports to shared storage. |
 
-## Dependencies
+## How Scanning Works
 
-| Package | Version | Purpose |
-|---|---|---|
-| `flutter_riverpod` | ^2.4.1 | State management |
-| `hive` / `hive_flutter` | ^2.2.3 / ^1.1.0 | Local key-value cache |
-| `fl_chart` | ^0.65.0 | Data visualization |
-| `flutter_local_notifications` | ^17.1.0 | Local push notifications |
-| `permission_handler` | ^11.0.0 | Runtime permission requests |
-| `intl` | ^0.19.0 | Date formatting |
+1. Flutter requests app data through `PermissionScannerService`.
+2. Android native code returns installed app or APK metadata, including target SDK and minimum SDK, through `MethodChannel('permission_scanner')`.
+3. JSON parsing and enrichment run off the UI thread with `compute()`.
+4. `PermissionAnalyzer` assigns risk levels, privacy scores, and risk signals.
+5. Riverpod providers feed the dashboard, app list, compare screen, timeline, and privacy tools.
+6. Hive stores cached scan data and invalidates it when the installed app fingerprint changes.
 
-## Star History
+## Key Files
 
-<a href="https://www.star-history.com/?repos=AHS-Mobile-Labs%2FPermission_Scanner&type=date&legend=bottom-right">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=AHS-Mobile-Labs/Permission_Scanner&type=date&theme=dark&legend=bottom-right" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=AHS-Mobile-Labs/Permission_Scanner&type=date&legend=bottom-right" />
-   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=AHS-Mobile-Labs/Permission_Scanner&type=date&legend=bottom-right" />
- </picture>
-</a>
+| File | Purpose |
+|---|---|
+| `lib/services/permission_scanner_service.dart` | Flutter-side native bridge for app scanning, APK scanning, exports, sharing, and fingerprints. |
+| `lib/services/permission_analyzer.dart` | Risk scoring and permission analysis rules. |
+| `lib/services/app_providers.dart` | Riverpod providers for installed apps, filters, loading state, and permission timeline data. |
+| `lib/services/cache_service.dart` | Hive cache initialization and persistence. |
+| `lib/utils/permission_database.dart` | Human-readable Android permission reference. |
+| `lib/screens/dashboard_screen.dart` | Main security dashboard. |
+| `lib/screens/privacy_tools_screen.dart` | APK scanner, timeline, permission library, reports, and transparency tools. |
+| `android/app/src/main/kotlin/com/ahsmobilelabs/permissionScanner/PermissionScanner.kt` | Android package scanning, APK inspection, exports, and sharing. |
+
+## Privacy
+
+Permission Scanner is built around local analysis. It reads app metadata from the device, calculates risk locally, and presents results in the app. Exported JSON/PDF reports and shared summaries are created only when the user chooses those actions.
+
+For the full policy text, see `privacypolicy.txt` or the in-app Privacy Policy screen.
+
+## License
+
+This project is licensed under the terms in [LICENSE](LICENSE).
 
 ## Author
 
