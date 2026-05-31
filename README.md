@@ -27,7 +27,6 @@ The app is designed to be transparent: scanning happens through native Android A
 ## Features
 
 - **Installed app scanner** - reads installed packages through a native `MethodChannel` and returns permissions, install source, system app status, SDK data, trackers, services, receivers, and app metadata.
-- **SDK detection** - detects each app's target SDK and minimum SDK to help identify outdated apps or apps built against older Android privacy rules.
 - **Privacy risk scoring** - calculates a 0-100 privacy score and classifies apps as safe, medium, dangerous, or critical based on dangerous permissions and high-risk behavior signals.
 - **Security dashboard** - summarizes overall device risk, permission exposure, risky apps, and recent permission changes.
 - **App detail view** - shows permission groups, risk signals, install details, trackers, and developer-level permission data.
