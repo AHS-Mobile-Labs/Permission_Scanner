@@ -66,7 +66,7 @@ class AboutScreen extends StatelessWidget {
                       fontSize: 28,
                       fontWeight: FontWeight.w900,
                       color: AppColors.textDark,
-                      letterSpacing: -0.5,
+                      letterSpacing: 0,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -98,7 +98,7 @@ class AboutScreen extends StatelessWidget {
                       ),
                     ),
                     child: const Text(
-                      'v1.0.1',
+                      'v1.0.2',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,

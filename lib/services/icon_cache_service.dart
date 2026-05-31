@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_scanner/services/app_logger.dart';
 
 /// Manages caching of app icons from base64 to PNG files.
 ///
@@ -24,27 +26,27 @@ class IconCacheService {
       final iconDir = Directory('${appDir.path}/$_iconCacheDirName');
 
       // Create icon cache directory if needed
-      if (!iconDir.existsSync()) {
-        iconDir.createSync(recursive: true);
+      if (!await iconDir.exists()) {
+        await iconDir.create(recursive: true);
       }
 
       final iconFile = File('${iconDir.path}/$appPackageName.png');
 
       // Only decode and write if file doesn't exist
       // Avoids redundant work when cache already exists
-      if (!iconFile.existsSync()) {
+      if (!await iconFile.exists()) {
         try {
-          final decoded = base64Decode(base64Icon);
+          final decoded = await compute(base64Decode, base64Icon);
           await iconFile.writeAsBytes(decoded);
         } catch (e) {
-          print('Error decoding/writing icon for $appPackageName: $e');
+          AppLogger.info('Error decoding/writing icon for $appPackageName: $e');
           return null;
         }
       }
 
       return iconFile.path;
-    } catch (e) {
-      print('Error caching icon for $appPackageName: $e');
+    } catch (e, stackTrace) {
+      AppLogger.error('Error caching icon for $appPackageName', e, stackTrace);
       return null;
     }
   }
@@ -58,12 +60,12 @@ class IconCacheService {
         '${appDir.path}/$_iconCacheDirName/$appPackageName.png',
       );
 
-      if (iconFile.existsSync()) {
+      if (await iconFile.exists()) {
         return iconFile.path;
       }
       return null;
-    } catch (e) {
-      print('Error retrieving cached icon path: $e');
+    } catch (e, stackTrace) {
+      AppLogger.error('Error retrieving cached icon path', e, stackTrace);
       return null;
     }
   }
@@ -75,12 +77,12 @@ class IconCacheService {
       final appDir = await getApplicationCacheDirectory();
       final iconDir = Directory('${appDir.path}/$_iconCacheDirName');
 
-      if (iconDir.existsSync()) {
-        iconDir.deleteSync(recursive: true);
-        print('Icon cache cleared successfully');
+      if (await iconDir.exists()) {
+        await iconDir.delete(recursive: true);
+        AppLogger.info('Icon cache cleared successfully');
       }
-    } catch (e) {
-      print('Error clearing icon cache: $e');
+    } catch (e, stackTrace) {
+      AppLogger.error('Error clearing icon cache', e, stackTrace);
     }
   }
 
@@ -91,17 +93,17 @@ class IconCacheService {
       final appDir = await getApplicationCacheDirectory();
       final iconDir = Directory('${appDir.path}/$_iconCacheDirName');
 
-      if (!iconDir.existsSync()) return 0;
+      if (!await iconDir.exists()) return 0;
 
       int totalSize = 0;
-      for (final file in iconDir.listSync(recursive: true)) {
+      await for (final file in iconDir.list(recursive: true)) {
         if (file is File) {
           totalSize += await file.length();
         }
       }
       return totalSize;
-    } catch (e) {
-      print('Error calculating icon cache size: $e');
+    } catch (e, stackTrace) {
+      AppLogger.error('Error calculating icon cache size', e, stackTrace);
       return 0;
     }
   }

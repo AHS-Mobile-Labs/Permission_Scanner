@@ -14,8 +14,10 @@ class RiskBadge extends StatelessWidget {
         return AppColors.riskSafe;
       case RiskLevel.medium:
         return AppColors.riskMedium;
-      case RiskLevel.dangerous:
+      case RiskLevel.high:
         return AppColors.riskDangerous;
+      case RiskLevel.critical:
+        return AppColors.riskCritical;
     }
   }
 
@@ -25,8 +27,10 @@ class RiskBadge extends StatelessWidget {
         return AppColors.riskSafeContainer;
       case RiskLevel.medium:
         return AppColors.riskMediumContainer;
-      case RiskLevel.dangerous:
+      case RiskLevel.high:
         return AppColors.riskDangerousContainer;
+      case RiskLevel.critical:
+        return AppColors.riskCriticalContainer;
     }
   }
 
@@ -35,9 +39,11 @@ class RiskBadge extends StatelessWidget {
       case RiskLevel.safe:
         return 'Safe';
       case RiskLevel.medium:
-        return 'Medium';
-      case RiskLevel.dangerous:
+        return 'Medium Risk';
+      case RiskLevel.high:
         return 'High Risk';
+      case RiskLevel.critical:
+        return 'Critical';
     }
   }
 
@@ -47,8 +53,10 @@ class RiskBadge extends StatelessWidget {
         return Icons.check_circle_rounded;
       case RiskLevel.medium:
         return Icons.warning_amber_rounded;
-      case RiskLevel.dangerous:
+      case RiskLevel.high:
         return Icons.error_rounded;
+      case RiskLevel.critical:
+        return Icons.gpp_bad_rounded;
     }
   }
 

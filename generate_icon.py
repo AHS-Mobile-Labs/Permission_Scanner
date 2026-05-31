@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
-"""Generate Permission Scanner app icon: shield with scanning effect on teal gradient."""
+"""Generate Permission Scanner app icon: shield with scanning effect on teal gradient.
+
+Colors are loaded from lib/config/colors.json to ensure consistency with the Flutter app.
+"""
 
 from PIL import Image, ImageDraw, ImageChops
+import json
+import os
 import math
 
 SIZE = 1024
@@ -9,12 +14,28 @@ CENTER = SIZE // 2
 
 img = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
 
+# --- Load colors from centralized config ---
+def load_colors():
+    """Load colors from lib/config/colors.json"""
+    config_path = os.path.join(os.path.dirname(__file__), "lib", "config", "colors.json")
+    try:
+        with open(config_path, "r") as f:
+            colors = json.load(f)
+            return colors
+    except FileNotFoundError:
+        print(f"Warning: {config_path} not found. Using default colors.")
+        return {
+            "primary": {"rgb": [13, 148, 132]},
+            "primaryDark": {"rgb": [15, 118, 110]}
+        }
+
+colors_config = load_colors()
+top_color = tuple(colors_config["primary"]["rgb"])           # #0D9488 (primary teal)
+bottom_color = tuple(colors_config["primaryDark"]["rgb"])    # #0F766E (darker teal)
+
 # --- Background: rounded square with teal-to-dark-teal gradient ---
 def lerp_color(c1, c2, t):
     return tuple(int(a + (b - a) * t) for a, b in zip(c1, c2))
-
-top_color = (13, 148, 132)      # #0D9488 (primary teal)
-bottom_color = (6, 95, 90)      # Darker teal
 
 # Draw gradient row by row (fast enough for 1024px)
 for y in range(SIZE):
@@ -117,7 +138,7 @@ shield_mask_draw = ImageDraw.Draw(shield_mask)
 draw_shield(shield_mask_draw, CENTER, CENTER + 10, shield_w - 40, shield_h - 40, fill=255)
 
 # Horizontal scan lines (teal)
-line_color = (13, 148, 132, 80)
+line_color = (*top_color, 80)
 line_spacing = 36
 y_start = CENTER - 230
 for i in range(14):
@@ -126,8 +147,8 @@ for i in range(14):
 
 # Brighter "active" scan line
 bright_line_y = CENTER - 30
-scan_draw.rectangle([0, bright_line_y, SIZE, bright_line_y + 6], fill=(13, 148, 132, 160))
-scan_draw.rectangle([0, bright_line_y - 8, SIZE, bright_line_y + 14], fill=(13, 148, 132, 40))
+scan_draw.rectangle([0, bright_line_y, SIZE, bright_line_y + 6], fill=(*top_color, 160))
+scan_draw.rectangle([0, bright_line_y - 8, SIZE, bright_line_y + 14], fill=(*top_color, 40))
 
 # Clip scan lines to shield
 scan_overlay = min_alpha(scan_overlay, shield_mask)
@@ -144,14 +165,14 @@ p2 = (check_cx - check_size * 0.1, check_cy + check_size * 0.45)
 p3 = (check_cx + check_size * 0.6, check_cy - check_size * 0.42)
 line_width = 42
 
-check_draw.line([p1, p2], fill=(13, 148, 132, 230), width=line_width, joint="curve")
-check_draw.line([p2, p3], fill=(13, 148, 132, 230), width=line_width, joint="curve")
+check_draw.line([p1, p2], fill=(*top_color, 230), width=line_width, joint="curve")
+check_draw.line([p2, p3], fill=(*top_color, 230), width=line_width, joint="curve")
 
 for p in [p1, p2, p3]:
     check_draw.ellipse(
         [p[0] - line_width // 2, p[1] - line_width // 2,
          p[0] + line_width // 2, p[1] + line_width // 2],
-        fill=(13, 148, 132, 230)
+        fill=(*top_color, 230)
     )
 
 img = Image.alpha_composite(img, check_overlay)

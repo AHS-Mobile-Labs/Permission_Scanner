@@ -7,6 +7,8 @@ import 'package:permission_scanner/services/permission_scanner_service.dart';
 import 'package:permission_scanner/services/permission_analyzer.dart';
 import 'package:permission_scanner/services/cache_service.dart';
 import 'package:permission_scanner/services/icon_cache_service.dart';
+import 'package:permission_scanner/services/notification_service.dart';
+import 'package:permission_scanner/services/app_logger.dart';
 import 'package:permission_scanner/utils/permission_database.dart';
 import 'dart:async';
 
@@ -89,6 +91,7 @@ class LoadingProgressNotifier extends StateNotifier<LoadingProgress> {
             // Icon caching happens in background (unawaited in InstalledAppsNotifier)
             // Simulate the icon caching stage with visual progress
             Future.delayed(const Duration(milliseconds: 800), () {
+              if (!mounted) return;
               if (state.percentage < 90) {
                 _reportProgress(
                   stage: 3,
@@ -100,6 +103,7 @@ class LoadingProgressNotifier extends StateNotifier<LoadingProgress> {
 
             // Mark complete after a brief delay to show final state
             Future.delayed(const Duration(milliseconds: 1500), () {
+              if (!mounted) return;
               if (!state.isComplete) {
                 state = const LoadingProgress.complete();
               }
@@ -129,11 +133,13 @@ class LoadingProgressNotifier extends StateNotifier<LoadingProgress> {
 
       // Timeout after 30 seconds to prevent infinite splash screen
       Future.delayed(const Duration(seconds: 30), () {
+        if (!mounted) return;
         if (!state.isComplete) {
           state = const LoadingProgress.complete();
         }
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('Loading progress initialization failed', e, stackTrace);
       state = const LoadingProgress.complete();
     }
   }
@@ -166,6 +172,73 @@ List<AppInfo> _enrichAppsInBackground(List<AppInfo> apps) {
   return apps.map((app) => PermissionAnalyzer.enrichAppInfo(app)).toList();
 }
 
+List<PermissionChangeEvent> _detectPermissionChanges(
+  List<AppInfo> previousApps,
+  List<AppInfo> freshApps,
+) {
+  if (previousApps.isEmpty) return [];
+  final previousByPackage = {
+    for (final app in previousApps) app.packageName: app,
+  };
+  final events = <PermissionChangeEvent>[];
+  final now = DateTime.now();
+
+  for (final fresh in freshApps) {
+    final previous = previousByPackage[fresh.packageName];
+    if (previous == null) continue;
+
+    final before = previous.permissions.toSet();
+    final after = fresh.permissions.toSet();
+    final added = after.difference(before).toList()..sort();
+    final removed = before.difference(after).toList()..sort();
+
+    if (added.isEmpty && removed.isEmpty) continue;
+
+    events.add(
+      PermissionChangeEvent(
+        packageName: fresh.packageName,
+        appName: fresh.appName,
+        addedPermissions: added,
+        removedPermissions: removed,
+        beforeScore: previous.privacyScore,
+        afterScore: fresh.privacyScore,
+        beforeRisk: previous.riskLevel,
+        afterRisk: fresh.riskLevel,
+        detectedAt: now,
+      ),
+    );
+  }
+
+  return events;
+}
+
+Future<void> _notifyPermissionChanges(
+  List<PermissionChangeEvent> events,
+) async {
+  if (events.isEmpty) return;
+  final notificationService = NotificationService();
+
+  for (final event in events.take(5)) {
+    if (!event.hasAddedPermissions) continue;
+    final firstPermission = _permissionDisplayName(
+      event.addedPermissions.first,
+    );
+    final more = event.addedPermissions.length > 1
+        ? ' and ${event.addedPermissions.length - 1} more'
+        : '';
+    await notificationService.showNotification(
+      title: 'Permission changed',
+      body: '${event.appName} added $firstPermission$more after update.',
+      id: 'permission_change_${event.packageName}_${event.detectedAt.millisecondsSinceEpoch}',
+    );
+  }
+}
+
+String _permissionDisplayName(String permission) {
+  return permissionDatabase[permission]?.displayName ??
+      permission.split('.').last.replaceAll('_', ' ');
+}
+
 /// Main provider for the installed-apps list.
 ///
 /// Strategy:
@@ -189,7 +262,7 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
     await cacheService.init();
 
     // ── Fast path: return cache while validating in background ─────
-    final cachedApps = cacheService.getCachedApps();
+    final cachedApps = await cacheService.getCachedAppsAsync();
     if (cachedApps.isNotEmpty) {
       // Schedule background refresh without blocking the UI
       // Don't await this - let it run independently
@@ -201,16 +274,18 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
     // Return unrich apps immediately, then enrich in background
     // This prevents the 10-second freeze on first launch
     try {
-      final apps = await service.getInstalledApps();
+      final apps = await service.getInstalledApps(deepScan: false);
       if (apps.isEmpty) return [];
 
       // Don't await enrichment - start caching in background
       unawaited(_enrichAndCache(apps, service, cacheService));
+      // A deeper APK byte scan is useful but never part of first paint.
+      unawaited(_deepScanAndCache(service, cacheService));
 
       // Return unenriched apps immediately for fast UI rendering
       return apps;
-    } catch (e) {
-      print('Error fetching apps on cold start: $e');
+    } catch (e, stackTrace) {
+      AppLogger.error('Error fetching apps on cold start', e, stackTrace);
       return [];
     }
   }
@@ -223,11 +298,21 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
     CacheService cacheService,
   ) async {
     try {
+      final previousApps = await cacheService.getCachedAppsAsync();
+
       // Get fingerprint
       final fingerprint = await service.getAppsFingerprint();
 
       // Enrich on background isolate to avoid blocking
       final enrichedApps = await compute(_enrichAppsInBackground, apps);
+      final permissionChanges = _detectPermissionChanges(
+        previousApps,
+        enrichedApps,
+      );
+      if (permissionChanges.isNotEmpty) {
+        await cacheService.savePermissionChangeEvents(permissionChanges);
+        unawaited(_notifyPermissionChanges(permissionChanges));
+      }
 
       // Cache icons in parallel to avoid blocking
       // Icons are cached from base64 to PNG files for fast rendering
@@ -241,8 +326,8 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
 
       // Update state with enriched apps
       state = AsyncData(enrichedApps);
-    } catch (e) {
-      print('Error enriching apps: $e');
+    } catch (e, stackTrace) {
+      AppLogger.error('Error enriching apps', e, stackTrace);
       // Keep the unenriched apps - don't fail
     }
   }
@@ -262,9 +347,9 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
           }
         }
       }
-      print('✓ Icon caching completed for ${apps.length} apps');
-    } catch (e) {
-      print('Error caching icons: $e');
+      AppLogger.info('Icon caching completed for ${apps.length} apps');
+    } catch (e, stackTrace) {
+      AppLogger.error('Error caching icons', e, stackTrace);
     }
   }
 
@@ -279,8 +364,17 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
         return; // Nothing changed — skip expensive scan
       }
 
-      final freshApps = await service.getInstalledApps();
+      final freshApps = await service.getInstalledApps(deepScan: true);
       final enrichedApps = await compute(_enrichAppsInBackground, freshApps);
+      final previousApps = await cacheService.getCachedAppsAsync();
+      final permissionChanges = _detectPermissionChanges(
+        previousApps,
+        enrichedApps,
+      );
+      if (permissionChanges.isNotEmpty) {
+        await cacheService.savePermissionChangeEvents(permissionChanges);
+        unawaited(_notifyPermissionChanges(permissionChanges));
+      }
 
       // Cache icons in background
       unawaited(_cacheIconsInBackground(enrichedApps));
@@ -290,8 +384,37 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
 
       // Push updated list to listeners
       state = AsyncData(enrichedApps);
-    } catch (e) {
-      print('Error refreshing app cache: $e');
+    } catch (e, stackTrace) {
+      AppLogger.error('Error refreshing app cache', e, stackTrace);
+    }
+  }
+
+  Future<void> _deepScanAndCache(
+    PermissionScannerService service,
+    CacheService cacheService,
+  ) async {
+    try {
+      await Future<void>.delayed(const Duration(seconds: 2));
+      final freshApps = await service.getInstalledApps(deepScan: true);
+      if (freshApps.isEmpty) return;
+      final previousApps = await cacheService.getCachedAppsAsync();
+      final enrichedApps = await compute(_enrichAppsInBackground, freshApps);
+      final permissionChanges = _detectPermissionChanges(
+        previousApps,
+        enrichedApps,
+      );
+      if (permissionChanges.isNotEmpty) {
+        await cacheService.savePermissionChangeEvents(permissionChanges);
+        unawaited(_notifyPermissionChanges(permissionChanges));
+      }
+      final fingerprint = await service.getAppsFingerprint();
+      await cacheService.saveApps(enrichedApps);
+      if (fingerprint.isNotEmpty) {
+        await cacheService.saveFingerprint(fingerprint);
+      }
+      state = AsyncData(enrichedApps);
+    } catch (e, stackTrace) {
+      AppLogger.error('Background deep scan failed', e, stackTrace);
     }
   }
 
@@ -314,7 +437,7 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
       final fingerprint = await service.getAppsFingerprint();
       if (fingerprint.isNotEmpty && !cacheService.hasAppsChanged(fingerprint)) {
         // No changes detected - just return cached data
-        final cachedApps = cacheService.getCachedApps();
+        final cachedApps = await cacheService.getCachedAppsAsync();
         if (cachedApps.isNotEmpty) {
           state = AsyncData(cachedApps);
           return;
@@ -322,7 +445,7 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
       }
 
       // Apps changed or no cache - fetch and enrich
-      final apps = await service.getInstalledApps();
+      final apps = await service.getInstalledApps(deepScan: true);
       await _enrichAndCache(apps, service, cacheService);
 
       // Update state with refreshed apps
@@ -400,9 +523,10 @@ final filteredAppsProvider = FutureProvider<List<AppInfo>>((ref) async {
       case SortOption.risk:
         filtered.sort((a, b) {
           const riskOrder = {
-            RiskLevel.dangerous: 0,
-            RiskLevel.medium: 1,
-            RiskLevel.safe: 2,
+            RiskLevel.critical: 0,
+            RiskLevel.high: 1,
+            RiskLevel.medium: 2,
+            RiskLevel.safe: 3,
           };
           return (riskOrder[a.riskLevel] ?? 3).compareTo(
             riskOrder[b.riskLevel] ?? 3,
@@ -426,7 +550,16 @@ final permissionHistoryProvider =
       ref,
       packageName,
     ) async {
-      return [];
+      final cacheService = ref.watch(cacheServiceProvider);
+      await cacheService.init();
+      return cacheService.getPermissionHistory(packageName);
+    });
+
+final permissionChangeEventsProvider =
+    FutureProvider<List<PermissionChangeEvent>>((ref) async {
+      final cacheService = ref.watch(cacheServiceProvider);
+      await cacheService.init();
+      return cacheService.getPermissionChangeEvents(limit: 50);
     });
 
 final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
@@ -445,7 +578,8 @@ final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
       case RiskLevel.medium:
         mediumCount++;
         break;
-      case RiskLevel.dangerous:
+      case RiskLevel.high:
+      case RiskLevel.critical:
         dangerousCount++;
         break;
     }
@@ -495,10 +629,19 @@ class DashboardOverview {
   final int unknownSourceApps;
   final int safeApps;
   final int mediumApps;
-  final int dangerousApps;
+  final int highRiskApps;
+  final int criticalApps;
   final int totalDangerousPermissions;
+  final int totalTrackers;
+  final int persistentApps;
+  final int trackerHeavyApps;
   final Map<String, int> permissionUsage;
+  final Map<String, int> trackerUsage;
+  final List<AppInfo> topRiskApps;
+  final List<PermissionChangeEvent> recentChanges;
   final int securityScore;
+
+  int get dangerousApps => highRiskApps + criticalApps;
 
   DashboardOverview({
     required this.totalApps,
@@ -507,26 +650,59 @@ class DashboardOverview {
     required this.unknownSourceApps,
     required this.safeApps,
     required this.mediumApps,
-    required this.dangerousApps,
+    required this.highRiskApps,
+    required this.criticalApps,
     required this.totalDangerousPermissions,
+    required this.totalTrackers,
+    required this.persistentApps,
+    required this.trackerHeavyApps,
     required this.permissionUsage,
+    required this.trackerUsage,
+    required this.topRiskApps,
+    required this.recentChanges,
     required this.securityScore,
   });
+}
+
+class _DashboardOverviewInput {
+  final List<AppInfo> apps;
+  final List<PermissionChangeEvent> recentChanges;
+
+  const _DashboardOverviewInput(this.apps, this.recentChanges);
 }
 
 final dashboardOverviewProvider = FutureProvider<DashboardOverview>((
   ref,
 ) async {
   final apps = await ref.watch(installedAppsProvider.future);
+  final cacheService = ref.watch(cacheServiceProvider);
+  await cacheService.init();
+  final recentChanges = await cacheService.getPermissionChangeEvents(limit: 5);
+
+  return compute(
+    _buildDashboardOverviewInBackground,
+    _DashboardOverviewInput(apps, recentChanges),
+  );
+});
+
+DashboardOverview _buildDashboardOverviewInBackground(
+  _DashboardOverviewInput input,
+) {
+  final apps = input.apps;
 
   int systemCount = 0;
   int userCount = 0;
   int unknownCount = 0;
   int safeCount = 0;
   int mediumCount = 0;
-  int dangerousCount = 0;
+  int highRiskCount = 0;
+  int criticalCount = 0;
   int totalDangerousPerms = 0;
+  int totalTrackers = 0;
+  int persistentApps = 0;
+  int trackerHeavyApps = 0;
   final permUsage = <String, int>{};
+  final trackerUsage = <String, int>{};
 
   for (final app in apps) {
     if (app.isSystemApp) {
@@ -545,25 +721,44 @@ final dashboardOverviewProvider = FutureProvider<DashboardOverview>((
       case RiskLevel.medium:
         mediumCount++;
         break;
-      case RiskLevel.dangerous:
-        dangerousCount++;
+      case RiskLevel.high:
+        highRiskCount++;
+        break;
+      case RiskLevel.critical:
+        criticalCount++;
         break;
     }
 
     totalDangerousPerms += app.dangerousPermissionCount;
+    totalTrackers += app.trackers.length;
+    if (app.runsAtBoot ||
+        app.usesForegroundService ||
+        app.requestsBatteryOptimizationBypass ||
+        app.keepsDeviceAwake) {
+      persistentApps++;
+    }
+    if (app.trackers.length >= 3) trackerHeavyApps++;
 
     for (final perm in app.permissions) {
       if (dangerousPermissions.contains(perm)) {
         permUsage[perm] = (permUsage[perm] ?? 0) + 1;
       }
     }
+    for (final tracker in app.trackers) {
+      trackerUsage[tracker.name] = (trackerUsage[tracker.name] ?? 0) + 1;
+    }
   }
 
   final securityScore = apps.isEmpty
       ? 100
-      : ((safeCount * 100 + mediumCount * 50 + dangerousCount * 10) /
-                apps.length)
+      : (apps.fold<int>(0, (sum, app) => sum + app.privacyScore) / apps.length)
             .round();
+  final topRiskApps = List<AppInfo>.from(apps)
+    ..sort((a, b) {
+      final riskCompare = a.riskLevel.sortRank.compareTo(b.riskLevel.sortRank);
+      if (riskCompare != 0) return riskCompare;
+      return a.privacyScore.compareTo(b.privacyScore);
+    });
 
   return DashboardOverview(
     totalApps: apps.length,
@@ -572,12 +767,19 @@ final dashboardOverviewProvider = FutureProvider<DashboardOverview>((
     unknownSourceApps: unknownCount,
     safeApps: safeCount,
     mediumApps: mediumCount,
-    dangerousApps: dangerousCount,
+    highRiskApps: highRiskCount,
+    criticalApps: criticalCount,
     totalDangerousPermissions: totalDangerousPerms,
+    totalTrackers: totalTrackers,
+    persistentApps: persistentApps,
+    trackerHeavyApps: trackerHeavyApps,
     permissionUsage: permUsage,
+    trackerUsage: trackerUsage,
+    topRiskApps: topRiskApps.take(8).toList(),
+    recentChanges: input.recentChanges,
     securityScore: securityScore,
   );
-});
+}
 
 final dashboardFilteredAppsProvider = FutureProvider<List<AppInfo>>((
   ref,
@@ -638,9 +840,10 @@ final dashboardFilteredAppsProvider = FutureProvider<List<AppInfo>>((
       case DashboardSortOption.risk:
         filtered.sort((a, b) {
           const riskOrder = {
-            RiskLevel.dangerous: 0,
-            RiskLevel.medium: 1,
-            RiskLevel.safe: 2,
+            RiskLevel.critical: 0,
+            RiskLevel.high: 1,
+            RiskLevel.medium: 2,
+            RiskLevel.safe: 3,
           };
           return (riskOrder[a.riskLevel] ?? 3).compareTo(
             riskOrder[b.riskLevel] ?? 3,

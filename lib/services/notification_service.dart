@@ -1,9 +1,10 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:permission_scanner/services/app_logger.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
-  late FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin;
+  FlutterLocalNotificationsPlugin? _flutterLocalNotificationsPlugin;
   bool _isInitialized = false;
 
   NotificationService._internal();
@@ -16,7 +17,7 @@ class NotificationService {
     if (_isInitialized) return;
 
     try {
-      _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+      final plugin = FlutterLocalNotificationsPlugin();
 
       const androidSettings = AndroidInitializationSettings(
         '@mipmap/ic_launcher',
@@ -24,11 +25,12 @@ class NotificationService {
 
       const initSettings = InitializationSettings(android: androidSettings);
 
-      await _flutterLocalNotificationsPlugin.initialize(initSettings);
+      await plugin.initialize(initSettings);
 
+      _flutterLocalNotificationsPlugin = plugin;
       _isInitialized = true;
-    } catch (e) {
-      print('Error initializing notifications: $e');
+    } catch (e, stackTrace) {
+      AppLogger.error('Error initializing notifications', e, stackTrace);
     }
   }
 
@@ -42,17 +44,18 @@ class NotificationService {
     try {
       final status = await Permission.notification.request();
       if (status.isDenied) {
-        print('Notification permission denied');
+        AppLogger.info('Notification permission denied');
       } else if (status.isPermanentlyDenied) {
-        print(
-          'Notification permission permanently denied, opening app settings',
-        );
-        openAppSettings();
+        AppLogger.info('Notification permission permanently denied');
       } else if (status.isGranted) {
-        print('Notification permission granted');
+        AppLogger.info('Notification permission granted');
       }
-    } catch (e) {
-      print('Error requesting notification permission: $e');
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        'Error requesting notification permission',
+        e,
+        stackTrace,
+      );
     }
   }
 
@@ -67,7 +70,9 @@ class NotificationService {
       // Check if notification permission is granted
       final status = await Permission.notification.status;
       if (!status.isGranted) {
-        print('Notification permission not granted, cannot show notification');
+        AppLogger.info(
+          'Notification permission not granted; skipping notification',
+        );
         return;
       }
 
@@ -83,15 +88,19 @@ class NotificationService {
 
       const notificationDetails = NotificationDetails(android: androidDetails);
 
-      await _flutterLocalNotificationsPlugin.show(
+      await _flutterLocalNotificationsPlugin?.show(
         packageName.hashCode,
         '⚠️ High-Risk App Detected',
         '$appName has $dangerousPermissionCount dangerous permissions',
         notificationDetails,
       );
-      print('High-risk app notification shown for $appName');
-    } catch (e) {
-      print('Error showing high-risk app notification: $e');
+      AppLogger.info('High-risk app notification shown for $appName');
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        'Error showing high-risk app notification',
+        e,
+        stackTrace,
+      );
     }
   }
 
@@ -106,7 +115,9 @@ class NotificationService {
       // Check if notification permission is granted
       final status = await Permission.notification.status;
       if (!status.isGranted) {
-        print('Notification permission not granted, cannot show notification');
+        AppLogger.info(
+          'Notification permission not granted; skipping notification',
+        );
         return;
       }
 
@@ -121,24 +132,25 @@ class NotificationService {
 
       const notificationDetails = NotificationDetails(android: androidDetails);
 
-      await _flutterLocalNotificationsPlugin.show(
+      await _flutterLocalNotificationsPlugin?.show(
         id.hashCode,
         title,
         body,
         notificationDetails,
       );
-      print('Notification shown: $title');
-    } catch (e) {
-      print('Error showing notification: $e');
+      AppLogger.info('Notification shown: $title');
+    } catch (e, stackTrace) {
+      AppLogger.error('Error showing notification', e, stackTrace);
     }
   }
 
   Future<void> cancelAll() async {
     try {
-      await _flutterLocalNotificationsPlugin.cancelAll();
-      print('All notifications cancelled');
-    } catch (e) {
-      print('Error cancelling notifications: $e');
+      if (!_isInitialized) await init();
+      await _flutterLocalNotificationsPlugin?.cancelAll();
+      AppLogger.info('All notifications cancelled');
+    } catch (e, stackTrace) {
+      AppLogger.error('Error cancelling notifications', e, stackTrace);
     }
   }
 }

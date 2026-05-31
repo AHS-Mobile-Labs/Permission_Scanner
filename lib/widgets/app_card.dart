@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:permission_scanner/models/app_info.dart';
@@ -13,9 +12,7 @@ class AppCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dangerousRatio = app.permissions.isEmpty
-        ? 0.0
-        : app.dangerousPermissionCount / app.permissions.length;
+    final riskRatio = (100 - app.privacyScore) / 100;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -41,36 +38,23 @@ class AppCard extends StatelessWidget {
                     width: 48,
                     height: 48,
                     color: AppColors.surfaceVariant,
-                    child: app.iconPath != null && app.iconPath!.isNotEmpty
-                        ? (app.iconPath!.startsWith('/')
-                              // Optimized: File path (no base64 decode needed)
-                              ? Image.file(
-                                  File(app.iconPath!),
-                                  width: 48,
-                                  height: 48,
-                                  fit: BoxFit.cover,
-                                  filterQuality: FilterQuality.medium,
-                                  cacheWidth: 96,
-                                  errorBuilder: (_, _, _) => const Icon(
-                                    Icons.apps_rounded,
-                                    size: 26,
-                                    color: AppColors.primary,
-                                  ),
-                                )
-                              // Fallback: Still base64 (for backwards compatibility)
-                              : Image.memory(
-                                  base64Decode(app.iconPath!),
-                                  width: 48,
-                                  height: 48,
-                                  fit: BoxFit.cover,
-                                  filterQuality: FilterQuality.medium,
-                                  cacheWidth: 96,
-                                  errorBuilder: (_, _, _) => const Icon(
-                                    Icons.apps_rounded,
-                                    size: 26,
-                                    color: AppColors.primary,
-                                  ),
-                                ))
+                    child:
+                        app.iconPath != null &&
+                            app.iconPath!.isNotEmpty &&
+                            app.iconPath!.startsWith('/')
+                        ? Image.file(
+                            File(app.iconPath!),
+                            width: 48,
+                            height: 48,
+                            fit: BoxFit.cover,
+                            filterQuality: FilterQuality.medium,
+                            cacheWidth: 96,
+                            errorBuilder: (_, _, _) => const Icon(
+                              Icons.apps_rounded,
+                              size: 26,
+                              color: AppColors.primary,
+                            ),
+                          )
                         : const Icon(
                             Icons.apps_rounded,
                             size: 26,
@@ -114,18 +98,19 @@ class AppCard extends StatelessWidget {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          // Risk bar
                           Expanded(
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(3),
                               child: LinearProgressIndicator(
-                                value: dangerousRatio,
+                                value: riskRatio,
                                 minHeight: 4,
                                 backgroundColor: AppColors.divider,
                                 valueColor: AlwaysStoppedAnimation(
-                                  dangerousRatio > 0.5
+                                  riskRatio > 0.6
+                                      ? AppColors.riskCritical
+                                      : riskRatio > 0.35
                                       ? AppColors.riskDangerous
-                                      : dangerousRatio > 0.2
+                                      : riskRatio > 0.15
                                       ? AppColors.riskMedium
                                       : AppColors.riskSafe,
                                 ),
@@ -134,7 +119,7 @@ class AppCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            '${app.permissions.length} perms',
+                            '${app.privacyScore}/100',
                             style: const TextStyle(
                               color: AppColors.textLight,
                               fontSize: 11,
@@ -143,6 +128,27 @@ class AppCard extends StatelessWidget {
                           ),
                         ],
                       ),
+                      if (app.trackers.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.radar_rounded,
+                              size: 13,
+                              color: AppColors.secondary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${app.trackers.length} trackers',
+                              style: const TextStyle(
+                                color: AppColors.textLight,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
