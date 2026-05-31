@@ -100,7 +100,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     color: AppColors.textDark,
-                    letterSpacing: -0.5,
+                    letterSpacing: 0,
                   ),
                 ),
                 const SizedBox(height: 4),

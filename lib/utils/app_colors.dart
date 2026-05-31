@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Primary palette – teal/blue accent
-  static const Color primary = Color(0xFF0D9488);
-  static const Color primaryContainer = Color(0xFFCCFBF1);
-  static const Color secondary = Color(0xFF0EA5E9);
-  static const Color secondaryContainer = Color(0xFFE0F2FE);
+  // Primary palette - green and white
+  static const Color primary = Color(0xFF0E7B72);
+  static const Color primaryContainer = Color(0xFFDCFCE7);
+  static const Color secondary = Color(0xFF95CBC5);
+  static const Color secondaryContainer = Color(0xFFF0FDF4);
 
   // Surfaces
-  static const Color background = Color(0xFFF8FAFB);
+  static const Color background = Color(0xFFFFFFFF);
   static const Color cardBackground = Color(0xFFFFFFFF);
-  static const Color surfaceVariant = Color(0xFFF1F5F9);
+  static const Color surfaceVariant = Color(0xFFFFFFFF);
 
   // Text
-  static const Color textDark = Color(0xFF0F172A);
-  static const Color textMedium = Color(0xFF475569);
-  static const Color textLight = Color(0xFF94A3B8);
+  static const Color textDark = Color(0xFF111827);
+  static const Color textMedium = Color(0xFF4B5563);
+  static const Color textLight = Color(0xFF6B7280);
 
   // Semantic risk colors
   static const Color riskSafe = Color(0xFF16A34A);
@@ -24,20 +24,22 @@ class AppColors {
   static const Color riskMediumContainer = Color(0xFFFEF3C7);
   static const Color riskDangerous = Color(0xFFDC2626);
   static const Color riskDangerousContainer = Color(0xFFFEE2E2);
+  static const Color riskCritical = Color(0xFF7F1D1D);
+  static const Color riskCriticalContainer = Color(0xFFFECACA);
 
   // Dividers & borders
-  static const Color divider = Color(0xFFE2E8F0);
-  static const Color border = Color(0xFFCBD5E1);
+  static const Color divider = Color(0xFFE5E7EB);
+  static const Color border = Color(0xFFD1D5DB);
 
   // Gradients
   static const List<Color> primaryGradient = [
-    Color(0xFF0F766E),
-    Color(0xFF0D9488),
-    Color(0xFF14B8A6),
+    Color(0xFF0A5D56),
+    Color(0xFF0E7B72),
+    Color(0xFF95CBC5),
   ];
   static const List<Color> dashboardGradient = [
-    Color(0xFF0F172A),
-    Color(0xFF1E293B),
+    Color(0xFF0A5D56),
+    Color(0xFF0E7B72),
   ];
 }
 
@@ -69,7 +71,7 @@ class AppTheme {
           color: AppColors.textDark,
           fontSize: 20,
           fontWeight: FontWeight.w700,
-          letterSpacing: -0.3,
+          letterSpacing: 0,
         ),
       ),
       cardTheme: CardThemeData(
@@ -170,13 +172,13 @@ class AppTheme {
           color: AppColors.textDark,
           fontSize: 28,
           fontWeight: FontWeight.w800,
-          letterSpacing: -0.5,
+          letterSpacing: 0,
         ),
         headlineMedium: TextStyle(
           color: AppColors.textDark,
           fontSize: 22,
           fontWeight: FontWeight.w700,
-          letterSpacing: -0.3,
+          letterSpacing: 0,
         ),
         titleLarge: TextStyle(
           color: AppColors.textDark,
@@ -208,5 +210,10 @@ class AppTheme {
         ),
       ),
     );
+  }
+
+  static ThemeData darkTheme() {
+    // Keep the branded green/white UI readable even when the device is in dark mode.
+    return lightTheme();
   }
 }

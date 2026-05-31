@@ -66,7 +66,7 @@ class AboutScreen extends StatelessWidget {
                       fontSize: 28,
                       fontWeight: FontWeight.w900,
                       color: AppColors.textDark,
-                      letterSpacing: -0.5,
+                      letterSpacing: 0,
                     ),
                   ),
                   const SizedBox(height: 8),

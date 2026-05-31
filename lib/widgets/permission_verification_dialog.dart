@@ -23,8 +23,8 @@ class PermissionVerificationDialog extends ConsumerStatefulWidget {
 
 class _PermissionVerificationDialogState
     extends ConsumerState<PermissionVerificationDialog> {
-  late List<String> selectedCapabilities;
-  late Map<String, bool> capabilitySelection;
+  List<String> selectedCapabilities = [];
+  Map<String, bool> capabilitySelection = {};
 
   @override
   void initState() {

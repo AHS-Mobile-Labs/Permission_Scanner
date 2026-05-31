@@ -35,8 +35,18 @@ class _PermissionItemState extends State<PermissionItem> {
         return Icons.call_rounded;
       case 'Storage':
         return Icons.folder_rounded;
+      case 'Media':
+        return Icons.photo_library_rounded;
       case 'Phone':
         return Icons.phone_android_rounded;
+      case 'Nearby Devices':
+        return Icons.bluetooth_searching_rounded;
+      case 'Sensors':
+        return Icons.sensors_rounded;
+      case 'Calendar':
+        return Icons.event_rounded;
+      case 'Notifications':
+        return Icons.notifications_rounded;
       case 'Network':
         return Icons.wifi_rounded;
       case 'Vibration':
@@ -185,8 +195,9 @@ class _PermissionItemState extends State<PermissionItem> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceVariant,
+                        color: AppColors.cardBackground,
                         borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.divider),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

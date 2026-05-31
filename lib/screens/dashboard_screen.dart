@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -45,7 +44,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   void _showHighRiskApps() {
-    ref.read(dashboardRiskFilterProvider.notifier).state = RiskLevel.dangerous;
+    ref.read(dashboardRiskFilterProvider.notifier).state = RiskLevel.high;
   }
 
   @override
@@ -118,6 +117,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
           SliverToBoxAdapter(child: _buildSecuritySummary(overview)),
           SliverToBoxAdapter(child: _buildQuickActions()),
+          SliverToBoxAdapter(child: _buildLiveMonitoring(overview)),
+          SliverToBoxAdapter(child: _buildTrackerBreakdown(overview)),
+          SliverToBoxAdapter(child: _buildRecentPermissionChanges(overview)),
           SliverToBoxAdapter(child: _buildPermissionBreakdown(overview)),
           SliverToBoxAdapter(child: _buildSearchBar()),
           SliverToBoxAdapter(child: _buildAppTypeTabs(overview, currentTab)),
@@ -249,7 +251,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 fontSize: 24,
                                 fontWeight: FontWeight.w800,
                                 height: 1,
-                                letterSpacing: -0.5,
+                                letterSpacing: 0,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -384,8 +386,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               _legendItem('Medium', overview.mediumApps, AppColors.riskMedium),
               _legendItem(
                 'High Risk',
-                overview.dangerousApps,
+                overview.highRiskApps,
                 AppColors.riskDangerous,
+              ),
+              _legendItem(
+                'Critical',
+                overview.criticalApps,
+                AppColors.riskCritical,
               ),
             ],
           ),
@@ -495,6 +502,241 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLiveMonitoring(DashboardOverview overview) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: _metricTile(
+              Icons.radar_rounded,
+              '${overview.totalTrackers}',
+              'Trackers',
+              AppColors.secondary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _metricTile(
+              Icons.autorenew_rounded,
+              '${overview.persistentApps}',
+              'Background',
+              AppColors.riskMedium,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _metricTile(
+              Icons.privacy_tip_rounded,
+              '${overview.recentChanges.length}',
+              'Changes',
+              AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricTile(IconData icon, String value, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textLight,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrackerBreakdown(DashboardOverview overview) {
+    if (overview.trackerUsage.isEmpty) return const SizedBox.shrink();
+    final sorted = overview.trackerUsage.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final topTrackers = sorted.take(5).toList();
+    final maxCount = topTrackers.first.value;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Tracker Detection',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...topTrackers.map((entry) {
+              final value = entry.value / maxCount;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            entry.key,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textDark,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${entry.value}',
+                          style: const TextStyle(
+                            color: AppColors.textLight,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: value,
+                        minHeight: 7,
+                        backgroundColor: AppColors.surfaceVariant,
+                        valueColor: const AlwaysStoppedAnimation(
+                          AppColors.secondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentPermissionChanges(DashboardOverview overview) {
+    if (overview.recentChanges.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Recent Permission Changes',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...overview.recentChanges.map((event) {
+              final added = event.addedPermissions
+                  .take(2)
+                  .map(
+                    (permission) =>
+                        permissionDatabase[permission]?.displayName ??
+                        permission.split('.').last,
+                  )
+                  .join(', ');
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.notification_important_rounded,
+                      color: AppColors.primary,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            event.appName,
+                            style: const TextStyle(
+                              color: AppColors.textDark,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            added.isEmpty
+                                ? 'Removed ${event.removedPermissions.length} permissions'
+                                : 'Added $added',
+                            style: const TextStyle(
+                              color: AppColors.textLight,
+                              fontSize: 11,
+                              height: 1.25,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    RiskBadge(riskLevel: event.afterRisk, compact: true),
+                  ],
+                ),
+              );
+            }),
+          ],
         ),
       ),
     );
@@ -683,10 +925,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           const SizedBox(width: 6),
           _filterChip(
             'Risky',
-            riskFilter == RiskLevel.dangerous,
+            riskFilter == RiskLevel.high,
             () => ref.read(dashboardRiskFilterProvider.notifier).state =
-                riskFilter == RiskLevel.dangerous ? null : RiskLevel.dangerous,
+                riskFilter == RiskLevel.high ? null : RiskLevel.high,
             activeColor: AppColors.riskDangerous,
+          ),
+          const SizedBox(width: 6),
+          _filterChip(
+            'Critical',
+            riskFilter == RiskLevel.critical,
+            () => ref.read(dashboardRiskFilterProvider.notifier).state =
+                riskFilter == RiskLevel.critical ? null : RiskLevel.critical,
+            activeColor: AppColors.riskCritical,
           ),
           const SizedBox(width: 6),
           _filterChip(
@@ -772,36 +1022,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     width: 44,
                     height: 44,
                     color: AppColors.surfaceVariant,
-                    child: app.iconPath != null && app.iconPath!.isNotEmpty
-                        ? (app.iconPath!.startsWith('/')
-                              // Optimized: File path (no base64 decode needed)
-                              ? Image.file(
-                                  File(app.iconPath!),
-                                  width: 44,
-                                  height: 44,
-                                  fit: BoxFit.cover,
-                                  filterQuality: FilterQuality.medium,
-                                  cacheWidth: 88,
-                                  errorBuilder: (_, _, _) => const Icon(
-                                    Icons.apps_rounded,
-                                    size: 24,
-                                    color: AppColors.primary,
-                                  ),
-                                )
-                              // Fallback: Still base64 (for backwards compatibility)
-                              : Image.memory(
-                                  base64Decode(app.iconPath!),
-                                  width: 44,
-                                  height: 44,
-                                  fit: BoxFit.cover,
-                                  filterQuality: FilterQuality.medium,
-                                  cacheWidth: 88,
-                                  errorBuilder: (_, _, _) => const Icon(
-                                    Icons.apps_rounded,
-                                    size: 24,
-                                    color: AppColors.primary,
-                                  ),
-                                ))
+                    child:
+                        app.iconPath != null &&
+                            app.iconPath!.isNotEmpty &&
+                            app.iconPath!.startsWith('/')
+                        ? Image.file(
+                            File(app.iconPath!),
+                            width: 44,
+                            height: 44,
+                            fit: BoxFit.cover,
+                            filterQuality: FilterQuality.medium,
+                            cacheWidth: 88,
+                            errorBuilder: (_, _, _) => const Icon(
+                              Icons.apps_rounded,
+                              size: 24,
+                              color: AppColors.primary,
+                            ),
+                          )
                         : const Icon(
                             Icons.apps_rounded,
                             size: 24,
