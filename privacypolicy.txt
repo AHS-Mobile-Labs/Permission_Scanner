@@ -291,6 +291,7 @@ after changes indicates your acceptance of the updated Privacy Policy.
 If you have questions, concerns, or requests regarding this Privacy Policy
 or our privacy practices, please contact us:
 
+Email:  ahsmobilelabs@gmail.com
 GitHub: https://github.com/AHS-Mobile-Labs/Permission_Scanner
 GitHub Issues: https://github.com/AHS-Mobile-Labs/Permission_Scanner/issues
 
@@ -384,4 +385,4 @@ If you do not agree with this Privacy Policy, please do not use
 Permission Scanner.
 
 Last Updated: April 2026
-Version: 1.0.0
+Version: 1.0.2
