@@ -1,5 +1,5 @@
 PRIVACY POLICY - Permission Scanner
-Last Updated: April 2026
+Last Updated: June 2026
 
 =============================================================================
 1. INTRODUCTION
@@ -7,7 +7,9 @@ Last Updated: April 2026
 
 Permission Scanner ("the App") is a privacy-first Android application
 designed to help users understand what permissions their installed apps
-request and whether those permissions are justified.
+request and whether those permissions are justified. The App also provides
+APK pre-install scanning, app comparison, privacy timelines, and
+exportable reports—all processed locally on your device.
 
 This Privacy Policy explains how we handle information when you use
 Permission Scanner. We are committed to protecting your privacy and
@@ -46,8 +48,19 @@ The App collects and stores the following information ONLY on your device:
   • Scan History: Per-app permission scan records with timestamps and
     permission change tracking (stored in Hive database)
 
-All of this data is stored ONLY in Hive local key-value storage on your
-device and is never transmitted to external servers.
+  • APK Scan Data: Permissions, trackers, and risk signals extracted from
+    APK files you choose to scan; processed in memory and not persisted
+    unless you export a report
+
+  • Exported Reports: JSON or PDF reports generated locally when you
+    choose to export or share scan results; these files are written to
+    your device storage or shared via Android's share sheet at your
+    explicit request only
+
+All of this data is stored ONLY on your device (Hive database or your
+chosen export location) and is never transmitted to external servers
+except when you explicitly share a report using Android's share sheet,
+in which case the destination is your choice entirely.
 
 
 2.2 SYSTEM PERMISSIONS REQUIRED
@@ -60,7 +73,12 @@ To function, Permission Scanner requires these Android permissions:
   • POST_NOTIFICATIONS: To send optional local alerts when a newly
     installed app requests a high number of dangerous permissions
 
-Both permissions are requested with clear justification when needed, and
+  • WRITE_EXTERNAL_STORAGE: Required only on Android 9 (Pie) and below
+    to save exported JSON or PDF reports to shared device storage. Not
+    requested on Android 10 and above, where scoped storage is used
+    automatically
+
+All permissions are requested with clear justification when needed, and
 notification permission is requested AFTER the main UI loads to avoid
 blocking app startup.
 
@@ -73,8 +91,13 @@ Permission Scanner does NOT:
   • Send your device identifiers (IMEI, serial number, or Android ID)
   • Transmit personal data, location, or network information
   • Connect to cloud services or external APIs
-  • Share data with third parties
+  • Share data with third parties without your action
   • Include telemetry, analytics, or crash reporting
+  • Automatically upload exported reports or scan results
+
+Note: When you use the report export or share feature, data is written
+locally or passed to Android's share sheet. The destination is always
+your explicit choice. No data is sent anywhere automatically.
 
 
 =============================================================================
@@ -90,6 +113,10 @@ All data collected is used exclusively for:
   • Identifying potentially unjustified permission use
   • Building the permission database and UI displays
   • Storing your manual app verifications
+  • Scanning APK files you select to check permissions before installation
+  • Comparing two installed apps across permission and risk dimensions
+  • Generating privacy timeline data showing permission changes over time
+  • Producing exportable JSON or PDF reports at your request
 
 3.2 CACHING AND OPTIMIZATION
 
@@ -158,7 +185,37 @@ This offline-first design ensures maximum privacy and minimal data exposure.
 
 
 =============================================================================
-6. PERMISSION JUSTIFICATION ENGINE
+6. APK SCANNER AND REPORT EXPORT
+=============================================================================
+
+6.1 APK SCANNER
+
+Permission Scanner can inspect APK files before installation:
+
+  • You select an APK file from your device storage
+  • The App reads and parses the APK manifest locally using Android APIs
+  • Extracted data includes declared permissions, trackers, services,
+    receivers, overlays, accessibility use, and background behavior signals
+  • All analysis runs in memory on your device and is not persisted to
+    Hive unless you take a further action (e.g., export)
+  • APK files themselves are never copied, modified, or transmitted
+
+6.2 REPORT EXPORT
+
+You can export scan results as JSON or PDF:
+
+  • Reports are generated entirely on-device
+  • JSON reports are structured text files containing app permission data
+    and risk analysis from your local scan
+  • PDF reports are rendered locally without any external service
+  • Exported files are saved to your chosen location on device storage
+  • If you use the share action, the file is passed to Android's share
+    sheet—where it goes is your choice entirely
+  • We do not receive, store, or process any exported report
+
+
+=============================================================================
+7. PERMISSION JUSTIFICATION ENGINE
 =============================================================================
 
 The App includes a justification engine that maps app capabilities to
@@ -178,10 +235,10 @@ The justification database is stored locally and never transmitted.
 
 
 =============================================================================
-7. SECURITY AND ENCRYPTION
+8. SECURITY AND ENCRYPTION
 =============================================================================
 
-7.1 LOCAL STORAGE SECURITY
+8.1 LOCAL STORAGE SECURITY
 
   • App data is stored in Hive, a secure local key-value database
   
@@ -191,20 +248,20 @@ The justification database is stored locally and never transmitted.
   • On devices with encrypted storage, Hive data benefits from device-level
     encryption
 
-7.2 ICON CACHING
+8.2 ICON CACHING
 
 App icons are cached locally as base64-encoded image data and stored in
 the Hive database. These icons are extracted from your device's installed
 packages and are never transmitted externally.
 
-7.3 NO EXTERNAL TRANSMISSION
+8.3 NO EXTERNAL TRANSMISSION
 
 Because Permission Scanner operates entirely offline, no encryption of
 transmissions is needed—your data is never sent over the internet.
 
 
 =============================================================================
-8. THIRD-PARTY LIBRARIES AND DEPENDENCIES
+9. THIRD-PARTY LIBRARIES AND DEPENDENCIES
 =============================================================================
 
 Permission Scanner uses the following open-source packages:
@@ -228,7 +285,7 @@ verify this by reviewing their source code:
 
 
 =============================================================================
-9. CHILDREN'S PRIVACY
+10. CHILDREN'S PRIVACY
 =============================================================================
 
 Permission Scanner is designed for users aged 13 and older. We do not
@@ -242,16 +299,16 @@ If you believe a child under 13 has used this App, please contact us at:
 
 
 =============================================================================
-10. YOUR PRIVACY CHOICES
+11. YOUR PRIVACY CHOICES
 =============================================================================
 
-10.1 NOTIFICATION PERMISSIONS
+11.1 NOTIFICATION PERMISSIONS
 
 You can choose to grant or deny notification permissions at any time. If
 denied, Permission Scanner will not send alerts about newly installed
 high-risk apps but will continue to function normally.
 
-10.2 DATA DELETION
+11.2 DATA DELETION
 
 You can delete all app data by:
 
@@ -260,19 +317,22 @@ You can delete all app data by:
   • Using Android Settings > Apps > Permission Scanner > Storage > Clear
     Storage
 
-10.3 PERMISSION REVOCATION
+11.3 PERMISSION REVOCATION
 
 At any time, you can revoke the following permissions via Android Settings:
 
   • QUERY_ALL_PACKAGES (allows the App to see installed apps)
   • POST_NOTIFICATIONS (allows push notifications)
+  • WRITE_EXTERNAL_STORAGE (allows report export on Android 9 and below)
 
 Revoking QUERY_ALL_PACKAGES will prevent the App from functioning properly,
-but you can do this if you choose not to use the App.
+but you can do this if you choose not to use the App. Revoking
+WRITE_EXTERNAL_STORAGE on Android 9 or below will disable the report
+export feature only; all other features continue to work normally.
 
 
 =============================================================================
-11. CHANGES TO THIS PRIVACY POLICY
+12. CHANGES TO THIS PRIVACY POLICY
 =============================================================================
 
 We may update this Privacy Policy from time to time to reflect changes in
@@ -285,7 +345,7 @@ after changes indicates your acceptance of the updated Privacy Policy.
 
 
 =============================================================================
-12. CONTACT US
+13. CONTACT US
 =============================================================================
 
 If you have questions, concerns, or requests regarding this Privacy Policy
@@ -299,10 +359,10 @@ We will respond to reasonable privacy requests within 30 days.
 
 
 =============================================================================
-13. LEGAL AND COMPLIANCE
+14. LEGAL AND COMPLIANCE
 =============================================================================
 
-13.1 APPLICABLE LAWS
+14.1 APPLICABLE LAWS
 
 This Privacy Policy complies with:
 
@@ -311,14 +371,14 @@ This Privacy Policy complies with:
   • India's Information Technology Act (applicable for AHS Mobile Labs)
   • Android Privacy Sandbox guidelines
 
-13.2 NO PERSONAL DATA COLLECTION
+14.2 NO PERSONAL DATA COLLECTION
 
 Because Permission Scanner does not collect, store, or transmit personal
 data in the traditional sense (names, email addresses, phone numbers,
 etc.), many privacy regulations do not apply. However, we maintain this
 policy for transparency and to respect user rights.
 
-13.3 DATA SUBJECT RIGHTS
+14.3 DATA SUBJECT RIGHTS
 
 You have the right to:
 
@@ -337,7 +397,7 @@ access to it at all times.
 
 
 =============================================================================
-14. LIMITATION OF LIABILITY
+15. LIMITATION OF LIABILITY
 =============================================================================
 
 Permission Scanner is provided "as is" without warranties. We make no
@@ -354,7 +414,7 @@ app reviews, privacy policies, and source code when evaluating app safety.
 
 
 =============================================================================
-15. LICENSING
+16. LICENSING
 =============================================================================
 
 Permission Scanner is released under the MIT License. The source code is
@@ -369,7 +429,7 @@ Copyright © 2026 AHS Mobile Labs
 
 
 =============================================================================
-16. EXPORT CONTROL
+17. EXPORT CONTROL
 =============================================================================
 
 Permission Scanner may be subject to export controls depending on your
@@ -384,5 +444,5 @@ END OF PRIVACY POLICY
 If you do not agree with this Privacy Policy, please do not use
 Permission Scanner.
 
-Last Updated: April 2026
+Last Updated: June 2026
 Version: 1.0.2
