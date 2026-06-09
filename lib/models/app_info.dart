@@ -4,6 +4,8 @@ class TrackerInfo {
   final String category;
   final String purpose;
   final int riskWeight;
+  final String evidence;
+  final int confidence;
 
   const TrackerInfo({
     required this.id,
@@ -11,6 +13,8 @@ class TrackerInfo {
     required this.category,
     required this.purpose,
     this.riskWeight = 4,
+    this.evidence = '',
+    this.confidence = 0,
   });
 
   factory TrackerInfo.fromJson(Map<String, dynamic> json) {
@@ -20,6 +24,8 @@ class TrackerInfo {
       category: json['category'] as String? ?? 'Unknown',
       purpose: json['purpose'] as String? ?? 'Collects app or device signals',
       riskWeight: json['riskWeight'] as int? ?? 4,
+      evidence: json['evidence'] as String? ?? '',
+      confidence: json['confidence'] as int? ?? 0,
     );
   }
 
@@ -29,6 +35,8 @@ class TrackerInfo {
     'category': category,
     'purpose': purpose,
     'riskWeight': riskWeight,
+    'evidence': evidence,
+    'confidence': confidence,
   };
 }
 
@@ -128,6 +136,8 @@ class AppInfo {
   final int providerCount;
   final int targetSdkVersion;
   final int minSdkVersion;
+  final int compileSdkVersion;
+  final String compileSdkCodename;
   final int apkSizeBytes;
   final int apkFileCount;
   final int dexFileCount;
@@ -181,6 +191,8 @@ class AppInfo {
     this.providerCount = 0,
     this.targetSdkVersion = 0,
     this.minSdkVersion = 0,
+    this.compileSdkVersion = 0,
+    this.compileSdkCodename = '',
     this.apkSizeBytes = 0,
     this.apkFileCount = 0,
     this.dexFileCount = 0,
@@ -235,6 +247,8 @@ class AppInfo {
     int? providerCount,
     int? targetSdkVersion,
     int? minSdkVersion,
+    int? compileSdkVersion,
+    String? compileSdkCodename,
     int? apkSizeBytes,
     int? apkFileCount,
     int? dexFileCount,
@@ -289,6 +303,8 @@ class AppInfo {
       providerCount: providerCount ?? this.providerCount,
       targetSdkVersion: targetSdkVersion ?? this.targetSdkVersion,
       minSdkVersion: minSdkVersion ?? this.minSdkVersion,
+      compileSdkVersion: compileSdkVersion ?? this.compileSdkVersion,
+      compileSdkCodename: compileSdkCodename ?? this.compileSdkCodename,
       apkSizeBytes: apkSizeBytes ?? this.apkSizeBytes,
       apkFileCount: apkFileCount ?? this.apkFileCount,
       dexFileCount: dexFileCount ?? this.dexFileCount,
@@ -373,6 +389,8 @@ class AppInfo {
       providerCount: json['providerCount'] as int? ?? 0,
       targetSdkVersion: json['targetSdkVersion'] as int? ?? 0,
       minSdkVersion: json['minSdkVersion'] as int? ?? 0,
+      compileSdkVersion: json['compileSdkVersion'] as int? ?? 0,
+      compileSdkCodename: json['compileSdkCodename'] as String? ?? '',
       apkSizeBytes: json['apkSizeBytes'] as int? ?? 0,
       apkFileCount: json['apkFileCount'] as int? ?? 0,
       dexFileCount: json['dexFileCount'] as int? ?? 0,
@@ -434,6 +452,8 @@ class AppInfo {
     'providerCount': providerCount,
     'targetSdkVersion': targetSdkVersion,
     'minSdkVersion': minSdkVersion,
+    'compileSdkVersion': compileSdkVersion,
+    'compileSdkCodename': compileSdkCodename,
     'apkSizeBytes': apkSizeBytes,
     'apkFileCount': apkFileCount,
     'dexFileCount': dexFileCount,

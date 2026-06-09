@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_scanner/models/app_info.dart';
 import 'package:permission_scanner/utils/app_colors.dart';
+import 'package:permission_scanner/utils/sdk_display.dart';
 import 'package:permission_scanner/utils/permission_database.dart';
 import 'package:permission_scanner/widgets/permission_item.dart';
 import 'package:permission_scanner/widgets/risk_badge.dart';
@@ -258,8 +259,9 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
             ),
 
             _buildIntelligencePanel(),
+            _buildSdkPanel(),
             _buildAssistantPanel(),
-            if (widget.app.trackers.isNotEmpty) _buildTrackerPanel(),
+            _buildTrackerPanel(),
             if (widget.app.malwareIndicators.isNotEmpty) _buildMalwarePanel(),
 
             // Verified capabilities
@@ -452,7 +454,7 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${widget.app.trackers.length} trackers · ${widget.app.serviceCount} services · ${widget.app.receiverCount} receivers',
+                        '${widget.app.trackers.length} SDKs · ${widget.app.serviceCount} services · ${widget.app.receiverCount} receivers',
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.textLight,
@@ -483,6 +485,105 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSdkPanel() {
+    final app = widget.app;
+    final targetColor = _sdkStatusColor(app.targetSdkVersion);
+    final compileValue = SdkDisplay.compileValue(
+      app.compileSdkVersion,
+      app.compileSdkCodename,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.android_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Android SDK Profile',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                ),
+                _sdkStatusPill(
+                  SdkDisplay.targetPosture(app.targetSdkVersion),
+                  targetColor,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final width = (constraints.maxWidth - 12) / 2;
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _sdkTile(
+                      'Target',
+                      SdkDisplay.apiValue(app.targetSdkVersion),
+                      targetColor,
+                      width,
+                    ),
+                    _sdkTile(
+                      'Minimum',
+                      SdkDisplay.apiValue(app.minSdkVersion),
+                      AppColors.primary,
+                      width,
+                    ),
+                    _sdkTile(
+                      'Compiled With',
+                      compileValue,
+                      AppColors.textMedium,
+                      width,
+                    ),
+                    _sdkTile(
+                      'Compatibility',
+                      app.minSdkVersion > 0 && app.targetSdkVersion > 0
+                          ? '${SdkDisplay.compactApiValue(app.minSdkVersion)} to ${SdkDisplay.compactApiValue(app.targetSdkVersion)}'
+                          : 'Range unavailable',
+                      AppColors.secondary,
+                      width,
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            Text(
+              SdkDisplay.targetNote(app.targetSdkVersion),
+              style: const TextStyle(
+                color: AppColors.textMedium,
+                fontSize: 12,
+                height: 1.35,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ),
       ),
@@ -578,6 +679,12 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
   }
 
   Widget _buildTrackerPanel() {
+    final categoryCounts = <String, int>{};
+    for (final tracker in widget.app.trackers) {
+      categoryCounts[tracker.category] =
+          (categoryCounts[tracker.category] ?? 0) + 1;
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: Container(
@@ -591,67 +698,191 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Tracker & SDK Scanner',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textDark,
-              ),
+            Row(
+              children: [
+                const Icon(
+                  Icons.radar_rounded,
+                  color: AppColors.secondary,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Tracker & SDK Scanner',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                ),
+                _sdkStatusPill(
+                  '${widget.app.trackers.length} found',
+                  widget.app.trackers.isEmpty
+                      ? AppColors.riskSafe
+                      : AppColors.secondary,
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
-            ...widget.app.trackers.map(
-              (tracker) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: AppColors.secondaryContainer,
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                      child: const Icon(
-                        Icons.radar_rounded,
-                        color: AppColors.secondary,
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            tracker.name,
-                            style: const TextStyle(
-                              color: AppColors.textDark,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${tracker.category} · ${tracker.purpose}',
-                            style: const TextStyle(
-                              color: AppColors.textLight,
-                              fontSize: 11,
-                              height: 1.25,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+            const SizedBox(height: 12),
+            if (widget.app.trackers.isEmpty) ...[
+              const Text(
+                'No known tracker SDK signatures were found in the latest scan.',
+                style: TextStyle(
+                  color: AppColors.textMedium,
+                  fontSize: 12,
+                  height: 1.35,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-            ),
+              if (widget.app.staticAnalysisLimitReached) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'The APK scan hit its safety limit, so absence of a match is not a guarantee.',
+                  style: TextStyle(
+                    color: AppColors.riskMedium,
+                    fontSize: 12,
+                    height: 1.35,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ] else ...[
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: categoryCounts.entries
+                    .map(
+                      (entry) => _categoryPill(
+                        '${entry.key} ${entry.value}',
+                        AppColors.secondary,
+                      ),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 12),
+              ...widget.app.trackers.map(_trackerSdkCard),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  Widget _trackerSdkCard(TrackerInfo tracker) {
+    final riskColor = _trackerRiskColor(tracker.riskWeight);
+    final confidenceLabel = tracker.confidence > 0
+        ? '${tracker.confidence}% match'
+        : 'Inferred';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: riskColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.hub_rounded, color: riskColor, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        tracker.name,
+                        style: const TextStyle(
+                          color: AppColors.textDark,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _categoryPill(confidenceLabel, riskColor),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${tracker.category} · ${_trackerRiskLabel(tracker.riskWeight)}',
+                  style: TextStyle(
+                    color: riskColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  tracker.purpose,
+                  style: const TextStyle(
+                    color: AppColors.textMedium,
+                    fontSize: 12,
+                    height: 1.3,
+                  ),
+                ),
+                if (tracker.evidence.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    tracker.evidence,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textLight,
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _categoryPill(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+
+  Color _trackerRiskColor(int weight) {
+    if (weight >= 8) return AppColors.riskDangerous;
+    if (weight >= 6) return AppColors.riskMedium;
+    return AppColors.primary;
+  }
+
+  String _trackerRiskLabel(int weight) {
+    if (weight >= 8) return 'high privacy impact';
+    if (weight >= 6) return 'medium privacy impact';
+    return 'low privacy impact';
   }
 
   Widget _buildMalwarePanel() {
@@ -703,6 +934,65 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sdkTile(String label, String value, Color color, double width) {
+    return SizedBox(
+      width: width,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 78),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.16)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.textLight,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+                height: 1.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sdkStatusPill(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );
@@ -786,6 +1076,14 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
     if (score >= 65) return AppColors.riskMedium;
     if (score >= 40) return AppColors.riskDangerous;
     return AppColors.riskCritical;
+  }
+
+  Color _sdkStatusColor(int targetApi) {
+    if (targetApi <= 0) return AppColors.textLight;
+    if (targetApi >= 35) return AppColors.riskSafe;
+    if (targetApi >= 33) return AppColors.primary;
+    if (targetApi >= 29) return AppColors.riskMedium;
+    return AppColors.riskDangerous;
   }
 
   Color _signalColor(String severity) {

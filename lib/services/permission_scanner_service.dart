@@ -197,6 +197,8 @@ List<AppInfo> parseAppsFromJson(String jsonString) {
             providerCount: appJson['providerCount'] as int? ?? 0,
             targetSdkVersion: appJson['targetSdkVersion'] as int? ?? 0,
             minSdkVersion: appJson['minSdkVersion'] as int? ?? 0,
+            compileSdkVersion: appJson['compileSdkVersion'] as int? ?? 0,
+            compileSdkCodename: appJson['compileSdkCodename'] as String? ?? '',
             apkSizeBytes: appJson['apkSizeBytes'] as int? ?? 0,
             apkFileCount: appJson['apkFileCount'] as int? ?? 0,
             dexFileCount: appJson['dexFileCount'] as int? ?? 0,

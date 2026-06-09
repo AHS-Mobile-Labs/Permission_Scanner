@@ -4,6 +4,7 @@ import 'package:permission_scanner/models/app_info.dart';
 import 'package:permission_scanner/services/permission_analyzer.dart';
 import 'package:permission_scanner/services/permission_scanner_service.dart';
 import 'package:permission_scanner/utils/app_colors.dart';
+import 'package:permission_scanner/utils/sdk_display.dart';
 import 'package:permission_scanner/utils/permission_database.dart';
 import 'package:permission_scanner/widgets/risk_badge.dart';
 
@@ -176,7 +177,7 @@ class _ApkScannerScreenState extends State<ApkScannerScreen> {
                 '${app.dangerousPermissionCount} dangerous',
                 AppColors.riskDangerous,
               ),
-              _chip('${app.trackers.length} trackers', AppColors.secondary),
+              _chip('${app.trackers.length} SDKs', AppColors.secondary),
               if (app.usesKnownPacker)
                 _chip('Packed APK', AppColors.riskMedium),
               if (app.requestsOverlayPermission)
@@ -212,10 +213,8 @@ class _ApkScannerScreenState extends State<ApkScannerScreen> {
                 'Extra signers',
                 '${app.signerSha256Digests.length - 1} more certificate digests',
               ),
-            _detailRow(
-              'SDK range',
-              'min ${app.minSdkVersion == 0 ? 'unknown' : app.minSdkVersion} / target ${app.targetSdkVersion == 0 ? 'unknown' : app.targetSdkVersion}',
-            ),
+            const SizedBox(height: 8),
+            _sdkSummary(app),
           ]),
 
           _sectionBlock('Component Surface', [
@@ -264,11 +263,18 @@ class _ApkScannerScreenState extends State<ApkScannerScreen> {
               app.staticFindings.map(_staticFindingRow).toList(),
             ),
 
-          if (app.trackers.isNotEmpty)
-            _sectionBlock(
-              'Trackers & SDKs',
-              app.trackers.map(_trackerRow).toList(),
-            ),
+          _sectionBlock(
+            'Trackers & SDKs',
+            app.trackers.isEmpty
+                ? [
+                    _warningBanner(
+                      app.staticAnalysisLimitReached
+                          ? 'No known tracker SDKs matched before the scan limit was reached. Treat this as inconclusive, not clean.'
+                          : 'No known tracker SDK signatures matched in the bounded offline scan.',
+                    ),
+                  ]
+                : app.trackers.map(_trackerRow).toList(),
+          ),
 
           _sectionBlock('Permissions', [
             _permissionSummary(
@@ -380,6 +386,117 @@ class _ApkScannerScreenState extends State<ApkScannerScreen> {
               .toList(),
         );
       },
+    );
+  }
+
+  Widget _sdkSummary(AppInfo app) {
+    final targetColor = _sdkStatusColor(app.targetSdkVersion);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.android_rounded,
+                color: AppColors.primary,
+                size: 17,
+              ),
+              const SizedBox(width: 7),
+              const Expanded(
+                child: Text(
+                  'Android SDK Profile',
+                  style: TextStyle(
+                    color: AppColors.textDark,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _chip(
+                SdkDisplay.targetPosture(app.targetSdkVersion),
+                targetColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _sdkMiniStat(
+                  'Target',
+                  SdkDisplay.apiValue(app.targetSdkVersion),
+                  targetColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _sdkMiniStat(
+                  'Minimum',
+                  SdkDisplay.apiValue(app.minSdkVersion),
+                  AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _detailRow(
+            'Compiled',
+            SdkDisplay.compileValue(
+              app.compileSdkVersion,
+              app.compileSdkCodename,
+            ),
+          ),
+          _detailRow(
+            'Target note',
+            SdkDisplay.targetNote(app.targetSdkVersion),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sdkMiniStat(String label, String value, Color color) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 72),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textLight,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              height: 1.2,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -504,26 +621,62 @@ class _ApkScannerScreenState extends State<ApkScannerScreen> {
   }
 
   Widget _trackerRow(TrackerInfo tracker) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+    final color = _trackerRiskColor(tracker.riskWeight);
+    final confidence = tracker.confidence > 0
+        ? '${tracker.confidence}% match'
+        : 'Inferred';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.divider),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.hub_outlined, color: AppColors.secondary, size: 16),
-          const SizedBox(width: 8),
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(Icons.hub_rounded, color: color, size: 17),
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        tracker.name,
+                        style: const TextStyle(
+                          color: AppColors.textDark,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _severityPill(confidence, color),
+                  ],
+                ),
+                const SizedBox(height: 4),
                 Text(
-                  '${tracker.name} · ${tracker.category}',
-                  style: const TextStyle(
-                    color: AppColors.textDark,
-                    fontSize: 12,
+                  '${tracker.category} · ${_trackerRiskLabel(tracker.riskWeight)}',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 11,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
                   tracker.purpose,
                   style: const TextStyle(
@@ -532,6 +685,19 @@ class _ApkScannerScreenState extends State<ApkScannerScreen> {
                     height: 1.3,
                   ),
                 ),
+                if (tracker.evidence.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    tracker.evidence,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textLight,
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -670,6 +836,26 @@ class _ApkScannerScreenState extends State<ApkScannerScreen> {
       default:
         return AppColors.primary;
     }
+  }
+
+  Color _sdkStatusColor(int targetApi) {
+    if (targetApi <= 0) return AppColors.textLight;
+    if (targetApi >= 35) return AppColors.riskSafe;
+    if (targetApi >= 33) return AppColors.primary;
+    if (targetApi >= 29) return AppColors.riskMedium;
+    return AppColors.riskDangerous;
+  }
+
+  Color _trackerRiskColor(int weight) {
+    if (weight >= 8) return AppColors.riskDangerous;
+    if (weight >= 6) return AppColors.riskMedium;
+    return AppColors.primary;
+  }
+
+  String _trackerRiskLabel(int weight) {
+    if (weight >= 8) return 'high privacy impact';
+    if (weight >= 6) return 'medium privacy impact';
+    return 'low privacy impact';
   }
 
   String _permissionLabel(String permission) {
