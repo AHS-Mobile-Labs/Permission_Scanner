@@ -139,7 +139,7 @@ class AppCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '${app.trackers.length} trackers',
+                              '${app.trackers.length} tracker SDKs',
                               style: const TextStyle(
                                 color: AppColors.textLight,
                                 fontSize: 11,

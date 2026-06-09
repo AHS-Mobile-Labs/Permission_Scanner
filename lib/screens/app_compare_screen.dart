@@ -178,7 +178,7 @@ class _AppCompareScreenState extends ConsumerState<AppCompareScreen> {
         right.dangerousPermissionCount.toString(),
       ),
       _MetricRow(
-        'Tracker count',
+        'Tracker SDK count',
         left.trackers.length.toString(),
         right.trackers.length.toString(),
       ),

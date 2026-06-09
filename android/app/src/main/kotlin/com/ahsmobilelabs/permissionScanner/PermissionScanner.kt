@@ -203,6 +203,190 @@ class PermissionScanner(private val context: Context) {
             "Install attribution and campaign analytics.",
             7,
             listOf("com/kochava", "kochava")
+        ),
+        TrackerSignature(
+            "google_analytics",
+            "Google Analytics",
+            "Analytics",
+            "Measures sessions, screens, events, and campaign performance.",
+            6,
+            listOf("com/google/android/gms/analytics", "google-analytics-services", "ga_trackingid")
+        ),
+        TrackerSignature(
+            "google_tag_manager",
+            "Google Tag Manager",
+            "Analytics",
+            "Loads analytics and marketing tags through a remote container.",
+            6,
+            listOf("com/google/android/gms/tagmanager", "googletagmanager", "gtm_container")
+        ),
+        TrackerSignature(
+            "firebase_messaging",
+            "Firebase Cloud Messaging",
+            "Messaging",
+            "Push notification delivery and topic messaging.",
+            3,
+            listOf("com/google/firebase/messaging", "firebase-messaging")
+        ),
+        TrackerSignature(
+            "facebook_audience_network",
+            "Meta Audience Network",
+            "Advertising",
+            "Meta ad monetization and audience measurement.",
+            8,
+            listOf("com/facebook/ads", "audience_network", "fan_placement")
+        ),
+        TrackerSignature(
+            "sentry",
+            "Sentry",
+            "Crash reporting",
+            "Crash reporting, performance monitoring, and release diagnostics.",
+            4,
+            listOf("io/sentry", "sentry.properties", "sentry_dsn")
+        ),
+        TrackerSignature(
+            "bugsnag",
+            "Bugsnag",
+            "Crash reporting",
+            "Crash reporting, stability monitoring, and diagnostics.",
+            4,
+            listOf("com/bugsnag", "bugsnag", "bugsnag_api_key")
+        ),
+        TrackerSignature(
+            "instabug",
+            "Instabug",
+            "Diagnostics",
+            "Bug reporting, crash reporting, surveys, and session diagnostics.",
+            5,
+            listOf("com/instabug", "instabug")
+        ),
+        TrackerSignature(
+            "datadog",
+            "Datadog RUM",
+            "Analytics",
+            "Real user monitoring, logs, traces, and performance telemetry.",
+            6,
+            listOf("com/datadog", "datadog", "dd-sdk-android")
+        ),
+        TrackerSignature(
+            "amplitude",
+            "Amplitude",
+            "Analytics",
+            "Product analytics, funnels, cohorts, and behavioral event tracking.",
+            7,
+            listOf("com/amplitude", "amplitude-android", "amplitude_api_key")
+        ),
+        TrackerSignature(
+            "segment",
+            "Segment",
+            "Analytics",
+            "Customer data routing to analytics and marketing destinations.",
+            7,
+            listOf("com/segment/analytics", "segment_write_key", "segment.io")
+        ),
+        TrackerSignature(
+            "clevertap",
+            "CleverTap",
+            "Engagement",
+            "Analytics, push messaging, segmentation, and lifecycle campaigns.",
+            7,
+            listOf("com/clevertap", "clevertap")
+        ),
+        TrackerSignature(
+            "moengage",
+            "MoEngage",
+            "Engagement",
+            "Customer engagement, push campaigns, analytics, and segmentation.",
+            7,
+            listOf("com/moengage", "moengage")
+        ),
+        TrackerSignature(
+            "airbridge",
+            "Airbridge",
+            "Attribution",
+            "Marketing attribution, deep links, and campaign measurement.",
+            7,
+            listOf("co/ab180/airbridge", "airbridge")
+        ),
+        TrackerSignature(
+            "singular",
+            "Singular",
+            "Attribution",
+            "Mobile attribution, campaign analytics, and fraud measurement.",
+            7,
+            listOf("com/singular/sdk", "singular_sdk")
+        ),
+        TrackerSignature(
+            "tenjin",
+            "Tenjin",
+            "Attribution",
+            "Install attribution and campaign analytics for mobile apps.",
+            7,
+            listOf("com/tenjin/android", "tenjin")
+        ),
+        TrackerSignature(
+            "yandex_appmetrica",
+            "Yandex AppMetrica",
+            "Analytics",
+            "App analytics, attribution, crash reporting, and audience metrics.",
+            7,
+            listOf("com/yandex/metrica", "appmetrica")
+        ),
+        TrackerSignature(
+            "countly",
+            "Countly",
+            "Analytics",
+            "Product analytics, crash reporting, and remote configuration.",
+            5,
+            listOf("ly/count/android", "countly")
+        ),
+        TrackerSignature(
+            "matomo",
+            "Matomo",
+            "Analytics",
+            "Privacy-focused analytics for sessions, events, and campaigns.",
+            4,
+            listOf("org/matomo/sdk", "matomo")
+        ),
+        TrackerSignature(
+            "vungle",
+            "Liftoff/Vungle",
+            "Advertising",
+            "Video advertising, monetization, and campaign measurement.",
+            8,
+            listOf("com/vungle", "vungle")
+        ),
+        TrackerSignature(
+            "chartboost",
+            "Chartboost",
+            "Advertising",
+            "Game advertising, mediation, and monetization.",
+            8,
+            listOf("com/chartboost", "chartboost")
+        ),
+        TrackerSignature(
+            "tapjoy",
+            "Tapjoy",
+            "Advertising",
+            "Offerwall advertising, rewards, monetization, and analytics.",
+            8,
+            listOf("com/tapjoy", "tapjoy")
+        ),
+        TrackerSignature(
+            "mintegral",
+            "Mintegral",
+            "Advertising",
+            "Mobile ad mediation, monetization, and campaign measurement.",
+            8,
+            listOf("com/mbridge/msdk", "mintegral", "mbridge")
+        ),
+        TrackerSignature(
+            "fyber",
+            "Digital Turbine/Fyber",
+            "Advertising",
+            "Ad mediation, monetization, and campaign measurement.",
+            8,
+            listOf("com/fyber", "com/inneractive", "digitalturbine")
         )
     )
 
@@ -704,6 +888,8 @@ class PermissionScanner(private val context: Context) {
             put("providerCount", pkg.providers?.size ?: 0)
             put("targetSdkVersion", appInfo.targetSdkVersion)
             put("minSdkVersion", if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) appInfo.minSdkVersion else 0)
+            put("compileSdkVersion", if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) appInfo.compileSdkVersion else 0)
+            put("compileSdkCodename", if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) appInfo.compileSdkVersionCodename ?: "" else "")
             put("apkSizeBytes", File(appInfo.sourceDir ?: "").length().coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
             put("apkFileCount", inspection.apkFileCount)
             put("dexFileCount", inspection.dexFileCount)
@@ -818,7 +1004,9 @@ class PermissionScanner(private val context: Context) {
                 "Unknown advertising SDK",
                 "Advertising",
                 "The app requests the Google advertising identifier, but the scanner did not match a known ad SDK.",
-                7
+                7,
+                "Permission com.google.android.gms.permission.AD_ID is requested.",
+                60
             )
         }
 
@@ -873,7 +1061,7 @@ class PermissionScanner(private val context: Context) {
                     val entry = entries.nextElement()
                     scannedEntries++
                     val entryName = entry.name.lowercase(Locale.US)
-                    matchTrackerText(entryName, found)
+                    matchTrackerText(entryName, found, entry.name, "APK path", 78)
                     matchStaticText(entryName, staticFindings, entry.name)
                     if (!entry.isDirectory) apkFileCount++
                     if (entryName.startsWith("assets/")) assetFileCount++
@@ -894,7 +1082,11 @@ class PermissionScanner(private val context: Context) {
                         (entryName.endsWith(".dex") ||
                             entryName.endsWith(".xml") ||
                             entryName.endsWith(".json") ||
-                            entryName.endsWith(".properties"))
+                            entryName.endsWith(".properties") ||
+                            entryName.endsWith(".txt") ||
+                            entryName.endsWith(".mf") ||
+                            entryName.endsWith(".arsc") ||
+                            entryName == "resources.arsc")
                     if (!shouldRead || entry.isDirectory) continue
 
                     val remainingBytes = maxTotalBytes - scannedBytes
@@ -905,8 +1097,8 @@ class PermissionScanner(private val context: Context) {
                     if (scannedBytes >= maxTotalBytes) {
                         staticAnalysisLimitReached = true
                     }
-                    val text = String(bytes, Charsets.ISO_8859_1).lowercase(Locale.US)
-                    matchTrackerText(text, found)
+                    val text = searchableText(bytes)
+                    matchTrackerText(text, found, entry.name, "File content", 92)
                     matchStaticText(text, staticFindings, entry.name)
                 }
             }
@@ -934,18 +1126,29 @@ class PermissionScanner(private val context: Context) {
         }
     }
 
-    private fun matchTrackerText(text: String, found: MutableMap<String, TrackerFinding>) {
+    private fun matchTrackerText(
+        text: String,
+        found: MutableMap<String, TrackerFinding>,
+        sourceName: String,
+        sourceType: String,
+        confidence: Int
+    ) {
         for (signature in trackerSignatures) {
-            if (found.containsKey(signature.id)) continue
-            if (signature.patterns.any { text.contains(it.lowercase(Locale.US)) }) {
-                found[signature.id] = TrackerFinding(
-                    signature.id,
-                    signature.name,
-                    signature.category,
-                    signature.purpose,
-                    signature.riskWeight
-                )
-            }
+            val matchedPattern = signature.patterns.firstOrNull {
+                text.contains(it.lowercase(Locale.US))
+            } ?: continue
+            val existing = found[signature.id]
+            if (existing != null && existing.confidence >= confidence) continue
+            val evidence = "$sourceType matched ${matchedPattern.take(64)} in ${sourceName.takeLast(80)}"
+            found[signature.id] = TrackerFinding(
+                signature.id,
+                signature.name,
+                signature.category,
+                signature.purpose,
+                signature.riskWeight,
+                evidence,
+                confidence
+            )
         }
     }
 
@@ -980,6 +1183,25 @@ class PermissionScanner(private val context: Context) {
             total += read
         }
         return out.toByteArray()
+    }
+
+    private fun searchableText(bytes: ByteArray): String {
+        val latinText = String(bytes, Charsets.ISO_8859_1)
+        val sampleSize = minOf(bytes.size, 4096)
+        if (sampleSize == 0) return ""
+        val zeroBytes = bytes.take(sampleSize).count { it.toInt() == 0 }
+        val text = if (zeroBytes > sampleSize / 8) {
+            buildString {
+                append(latinText)
+                append('\n')
+                append(String(bytes, Charsets.UTF_16LE))
+                append('\n')
+                append(String(bytes, Charsets.UTF_16BE))
+            }
+        } else {
+            latinText
+        }
+        return text.lowercase(Locale.US)
     }
 
     private fun copyLimited(input: InputStream, output: FileOutputStream, maxBytes: Long) {
@@ -1161,7 +1383,9 @@ private data class TrackerFinding(
     val name: String,
     val category: String,
     val purpose: String,
-    val riskWeight: Int
+    val riskWeight: Int,
+    val evidence: String,
+    val confidence: Int
 ) {
     fun toJson(): JSONObject {
         return JSONObject()
@@ -1170,6 +1394,8 @@ private data class TrackerFinding(
             .put("category", category)
             .put("purpose", purpose)
             .put("riskWeight", riskWeight)
+            .put("evidence", evidence)
+            .put("confidence", confidence)
     }
 }
 
