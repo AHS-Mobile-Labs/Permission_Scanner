@@ -32,11 +32,21 @@ import java.util.zip.ZipFile
 class PermissionScanner(private val context: Context) {
     private val packageManager = context.packageManager
 
+    @Suppress("DEPRECATION")
+    private val signingQueryFlags =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            PackageManager.GET_SIGNING_CERTIFICATES
+        } else {
+            PackageManager.GET_SIGNATURES
+        }
+
     private val packageQueryFlags =
         PackageManager.GET_PERMISSIONS or
             PackageManager.GET_SERVICES or
             PackageManager.GET_RECEIVERS or
             PackageManager.GET_ACTIVITIES or
+            PackageManager.GET_PROVIDERS or
+            signingQueryFlags or
             PackageManager.GET_META_DATA
 
     private val trustedInstallers = mapOf(
@@ -196,6 +206,176 @@ class PermissionScanner(private val context: Context) {
         )
     )
 
+    private val staticSignalSignatures = listOf(
+        StaticSignalSignature(
+            "dynamic_code_loading",
+            "Dynamic code loading",
+            "The APK references APIs that can load code at runtime. This may be legitimate for plugin systems, but it can also hide behavior from static review.",
+            "high",
+            14,
+            "DexClassLoader or related class loader",
+            listOf(
+                "dalvik/system/dexclassloader",
+                "dalvik/system/pathclassloader",
+                "dalvik/system/inmemorydexclassloader",
+                "dexclassloader",
+                "loadclass"
+            )
+        ),
+        StaticSignalSignature(
+            "runtime_command_execution",
+            "Runtime command execution",
+            "The APK references command execution APIs or shell paths. Apps that run system commands deserve careful review.",
+            "high",
+            12,
+            "Runtime.exec, ProcessBuilder, or shell command path",
+            listOf(
+                "java/lang/runtime",
+                "runtime.exec",
+                "processbuilder",
+                "/system/bin/sh",
+                "/system/xbin/su",
+                "/system/bin/su"
+            )
+        ),
+        StaticSignalSignature(
+            "reflection",
+            "Reflection-heavy code",
+            "The APK references reflection APIs that can hide which methods are called until runtime.",
+            "medium",
+            6,
+            "Java reflection API",
+            listOf(
+                "java/lang/reflect",
+                "class.forname",
+                "class;->forname",
+                "method.invoke",
+                "getdeclaredmethod"
+            )
+        ),
+        StaticSignalSignature(
+            "native_code_loading",
+            "Native code loading",
+            "The APK references native library loading. Native code is common, but it is harder to explain from Android permissions alone.",
+            "medium",
+            5,
+            "System.loadLibrary or dlopen",
+            listOf(
+                "system.loadlibrary",
+                "system;->loadlibrary",
+                "loadlibrary",
+                "dlopen"
+            )
+        ),
+        StaticSignalSignature(
+            "accessibility_automation",
+            "Accessibility automation APIs",
+            "The APK references APIs that can inspect the screen or automate user actions when paired with accessibility access.",
+            "critical",
+            18,
+            "AccessibilityService automation API",
+            listOf(
+                "android/accessibilityservice/accessibilityservice",
+                "dispatchgesture",
+                "performglobalaction",
+                "accessibilitynodeinfo"
+            )
+        ),
+        StaticSignalSignature(
+            "screen_capture",
+            "Screen capture APIs",
+            "The APK references Android screen capture APIs. This can expose visible app content if the user grants capture access.",
+            "high",
+            12,
+            "MediaProjection screen capture API",
+            listOf(
+                "mediaprojectionmanager",
+                "mediaprojection",
+                "createscreencaptureintent",
+                "virtualdisplay"
+            )
+        ),
+        StaticSignalSignature(
+            "clipboard_access",
+            "Clipboard access APIs",
+            "The APK references clipboard APIs, which may expose copied codes, addresses, or other sensitive text.",
+            "medium",
+            6,
+            "ClipboardManager API",
+            listOf(
+                "clipboardmanager",
+                "getprimaryclip",
+                "setprimaryclip"
+            )
+        ),
+        StaticSignalSignature(
+            "device_identifier_collection",
+            "Device identifier collection",
+            "The APK references APIs commonly used to collect persistent device or subscriber identifiers.",
+            "high",
+            10,
+            "Device or subscriber identifier API",
+            listOf(
+                "getdeviceid",
+                "getimei",
+                "getsubscriberid",
+                "android_id",
+                "settings\$secure"
+            )
+        ),
+        StaticSignalSignature(
+            "package_installation",
+            "Package installation APIs",
+            "The APK references installer APIs that can request or manage app installation flows.",
+            "high",
+            10,
+            "PackageInstaller or install intent",
+            listOf(
+                "packageinstaller",
+                "request_install_packages",
+                "action_install_package"
+            )
+        ),
+        StaticSignalSignature(
+            "sms_interception",
+            "SMS interception APIs",
+            "The APK references SMS handling APIs that can read, send, receive, or suppress message broadcasts.",
+            "critical",
+            16,
+            "SMS receiver or SMS manager API",
+            listOf(
+                "sms_received",
+                "smsmanager",
+                "abortbroadcast",
+                "receivesms"
+            )
+        ),
+        StaticSignalSignature(
+            "notification_listener",
+            "Notification listener APIs",
+            "The APK references notification listener APIs that can read notifications when enabled by the user.",
+            "high",
+            10,
+            "NotificationListenerService API",
+            listOf(
+                "notificationlistenerservice",
+                "bind_notification_listener_service"
+            )
+        ),
+        StaticSignalSignature(
+            "vpn_service",
+            "VPN service APIs",
+            "The APK references VPN service APIs. VPN apps can observe network routing metadata when enabled.",
+            "high",
+            10,
+            "VpnService API",
+            listOf(
+                "vpnservice",
+                "bind_vpn_service"
+            )
+        )
+    )
+
     fun getInstalledAppsWithPermissions(deepScan: Boolean = false): String {
         return try {
             val packages: List<PackageInfo> =
@@ -251,6 +431,74 @@ class PermissionScanner(private val context: Context) {
             ""
         }
     }
+
+    private fun emptyApkInspection(): ApkInspection {
+        return ApkInspection(
+            trackers = emptyList(),
+            staticFindings = emptyList(),
+            usesKnownPacker = false,
+            hasNativeLibraries = false,
+            apkSha256 = "",
+            apkFileCount = 0,
+            dexFileCount = 0,
+            nativeLibraryCount = 0,
+            assetFileCount = 0,
+            nativeArchitectures = emptyList(),
+            staticAnalysisLimitReached = false
+        )
+    }
+
+    @Suppress("DEPRECATION")
+    private fun signerSha256Digests(pkg: PackageInfo): List<String> {
+        return try {
+            val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val signingInfo = pkg.signingInfo ?: return emptyList()
+                val signers = if (signingInfo.hasMultipleSigners()) {
+                    signingInfo.apkContentsSigners
+                } else {
+                    signingInfo.signingCertificateHistory
+                }
+                signers?.toList() ?: emptyList()
+            } else {
+                pkg.signatures?.toList() ?: emptyList()
+            }
+
+            signatures
+                .map { sha256Bytes(it.toByteArray()) }
+                .filter { it.isNotEmpty() }
+                .distinct()
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun sha256File(file: File): String {
+        return try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            val buffer = ByteArray(64 * 1024)
+            file.inputStream().use { input ->
+                while (!Thread.currentThread().isInterrupted) {
+                    val read = input.read(buffer)
+                    if (read <= 0) break
+                    digest.update(buffer, 0, read)
+                }
+            }
+            hexDigest(digest.digest())
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    private fun sha256Bytes(bytes: ByteArray): String {
+        return try {
+            hexDigest(MessageDigest.getInstance("SHA-256").digest(bytes))
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    private fun hexDigest(bytes: ByteArray): String =
+        bytes.joinToString("") { "%02x".format(it) }
 
     fun exportPdfReport(reportJson: String): String {
         var document: PdfDocument? = null
@@ -401,9 +649,14 @@ class PermissionScanner(private val context: Context) {
         // fast metadata pass; full tracker byte scanning only runs for explicit or
         // background deep refreshes.
         val inspection = if (deepScan) {
-            inspectApk(appInfo, permissions, allowDexScan = !isSystem)
+            inspectApk(
+                appInfo,
+                permissions,
+                allowDexScan = !isSystem,
+                includeFileHash = isArchive
+            )
         } else {
-            ApkInspection(emptyList(), usesKnownPacker = false, hasNativeLibraries = false)
+            emptyApkInspection()
         }
         val fakeSystemRisk = !isSystem &&
             classifyInstallSource(appInfo, installerRaw) == "Unknown" &&
@@ -442,11 +695,21 @@ class PermissionScanner(private val context: Context) {
             put("iconPath", if (isArchive) "" else getAppIcon(appInfo, pkg.lastUpdateTime))
             put("permissions", JSONArray().apply { permissions.forEach { put(it) } })
             put("trackers", JSONArray().apply { inspection.trackers.forEach { put(it.toJson()) } })
+            put("staticFindings", JSONArray().apply { inspection.staticFindings.forEach { put(it.toJson()) } })
+            put("signerSha256Digests", JSONArray().apply { signerSha256Digests(pkg).forEach { put(it) } })
+            put("nativeArchitectures", JSONArray().apply { inspection.nativeArchitectures.forEach { put(it) } })
             put("serviceCount", pkg.services?.size ?: 0)
             put("receiverCount", pkg.receivers?.size ?: 0)
+            put("activityCount", pkg.activities?.size ?: 0)
+            put("providerCount", pkg.providers?.size ?: 0)
             put("targetSdkVersion", appInfo.targetSdkVersion)
             put("minSdkVersion", if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) appInfo.minSdkVersion else 0)
             put("apkSizeBytes", File(appInfo.sourceDir ?: "").length().coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
+            put("apkFileCount", inspection.apkFileCount)
+            put("dexFileCount", inspection.dexFileCount)
+            put("nativeLibraryCount", inspection.nativeLibraryCount)
+            put("assetFileCount", inspection.assetFileCount)
+            put("apkSha256", inspection.apkSha256)
             put("firstInstallTime", if (isArchive) 0L else pkg.firstInstallTime)
             put("lastUpdateTime", if (isArchive) 0L else pkg.lastUpdateTime)
             put("hasLauncher", hasLauncher)
@@ -481,6 +744,7 @@ class PermissionScanner(private val context: Context) {
             put("isDebuggable", (appInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0)
             put("usesKnownPacker", inspection.usesKnownPacker)
             put("hasNativeLibraries", inspection.hasNativeLibraries)
+            put("staticAnalysisLimitReached", inspection.staticAnalysisLimitReached)
         }
     }
 
@@ -510,11 +774,20 @@ class PermissionScanner(private val context: Context) {
     private fun inspectApk(
         appInfo: ApplicationInfo,
         permissions: Set<String>,
-        allowDexScan: Boolean
+        allowDexScan: Boolean,
+        includeFileHash: Boolean
     ): ApkInspection {
         val found = linkedMapOf<String, TrackerFinding>()
+        val staticFindings = linkedMapOf<String, StaticFinding>()
         var usesKnownPacker = false
         var hasNativeLibraries = false
+        var apkSha256 = ""
+        var apkFileCount = 0
+        var dexFileCount = 0
+        var nativeLibraryCount = 0
+        var assetFileCount = 0
+        var staticAnalysisLimitReached = false
+        val nativeArchitectures = linkedSetOf<String>()
         val paths = mutableListOf<String>()
         appInfo.sourceDir?.let { paths.add(it) }
         appInfo.splitSourceDirs?.forEach { paths.add(it) }
@@ -523,9 +796,18 @@ class PermissionScanner(private val context: Context) {
             if (Thread.currentThread().isInterrupted) break
             val file = File(path)
             if (!file.exists()) continue
-            val signals = inspectZipForSignals(file, found, allowDexScan)
+            if (includeFileHash && apkSha256.isEmpty()) {
+                apkSha256 = sha256File(file)
+            }
+            val signals = inspectZipForSignals(file, found, staticFindings, allowDexScan)
             usesKnownPacker = usesKnownPacker || signals.usesKnownPacker
             hasNativeLibraries = hasNativeLibraries || signals.hasNativeLibraries
+            apkFileCount += signals.apkFileCount
+            dexFileCount += signals.dexFileCount
+            nativeLibraryCount += signals.nativeLibraryCount
+            assetFileCount += signals.assetFileCount
+            nativeArchitectures.addAll(signals.nativeArchitectures)
+            staticAnalysisLimitReached = staticAnalysisLimitReached || signals.staticAnalysisLimitReached
         }
 
         val hasAdId = permissions.contains("com.google.android.gms.permission.AD_ID")
@@ -542,18 +824,33 @@ class PermissionScanner(private val context: Context) {
 
         return ApkInspection(
             trackers = found.values.toList(),
+            staticFindings = staticFindings.values.toList(),
             usesKnownPacker = usesKnownPacker,
-            hasNativeLibraries = hasNativeLibraries
+            hasNativeLibraries = hasNativeLibraries,
+            apkSha256 = apkSha256,
+            apkFileCount = apkFileCount,
+            dexFileCount = dexFileCount,
+            nativeLibraryCount = nativeLibraryCount,
+            assetFileCount = assetFileCount,
+            nativeArchitectures = nativeArchitectures.toList().sorted(),
+            staticAnalysisLimitReached = staticAnalysisLimitReached
         )
     }
 
     private fun inspectZipForSignals(
         file: File,
         found: MutableMap<String, TrackerFinding>,
+        staticFindings: MutableMap<String, StaticFinding>,
         allowDexScan: Boolean
     ): ApkFileSignals {
         var usesKnownPacker = false
         var hasNativeLibraries = false
+        var apkFileCount = 0
+        var dexFileCount = 0
+        var nativeLibraryCount = 0
+        var assetFileCount = 0
+        var staticAnalysisLimitReached = false
+        val nativeArchitectures = linkedSetOf<String>()
         val packerPatterns = listOf("jiagu", "secneo", "bangcle", "ijiami", "libprotect", "libshell", "360jiagu")
 
         return try {
@@ -561,21 +858,32 @@ class PermissionScanner(private val context: Context) {
                 val entries = zip.entries()
                 var scannedBytes = 0
                 var scannedEntries = 0
-                val maxEntries = if (allowDexScan) 1_500 else 500
-                val maxTotalBytes = if (allowDexScan) 4 * 1024 * 1024 else 0
-                val maxEntryBytes = if (allowDexScan) 768 * 1024 else 0
+                val maxEntries = if (allowDexScan) 8_000 else 1_500
+                val maxTotalBytes = if (allowDexScan) 8 * 1024 * 1024 else 0
+                val maxEntryBytes = if (allowDexScan) 1024 * 1024 else 0
 
                 while (
                     entries.hasMoreElements() &&
-                    scannedEntries < maxEntries &&
                     !Thread.currentThread().isInterrupted
                 ) {
+                    if (scannedEntries >= maxEntries) {
+                        staticAnalysisLimitReached = true
+                        break
+                    }
                     val entry = entries.nextElement()
                     scannedEntries++
                     val entryName = entry.name.lowercase(Locale.US)
                     matchTrackerText(entryName, found)
+                    matchStaticText(entryName, staticFindings, entry.name)
+                    if (!entry.isDirectory) apkFileCount++
+                    if (entryName.startsWith("assets/")) assetFileCount++
+                    if (entryName.endsWith(".dex")) dexFileCount++
                     if (entryName.startsWith("lib/") && entryName.endsWith(".so")) {
                         hasNativeLibraries = true
+                        nativeLibraryCount++
+                        entryName.split('/').getOrNull(1)?.let { abi ->
+                            if (abi.isNotBlank()) nativeArchitectures.add(abi)
+                        }
                     }
                     if (packerPatterns.any { pattern -> entryName.contains(pattern) }) {
                         usesKnownPacker = true
@@ -594,13 +902,35 @@ class PermissionScanner(private val context: Context) {
                         readLimited(it, minOf(maxEntryBytes, remainingBytes))
                     }
                     scannedBytes += bytes.size
+                    if (scannedBytes >= maxTotalBytes) {
+                        staticAnalysisLimitReached = true
+                    }
                     val text = String(bytes, Charsets.ISO_8859_1).lowercase(Locale.US)
                     matchTrackerText(text, found)
+                    matchStaticText(text, staticFindings, entry.name)
                 }
             }
-            ApkFileSignals(usesKnownPacker, hasNativeLibraries)
+            ApkFileSignals(
+                usesKnownPacker = usesKnownPacker,
+                hasNativeLibraries = hasNativeLibraries,
+                apkFileCount = apkFileCount,
+                dexFileCount = dexFileCount,
+                nativeLibraryCount = nativeLibraryCount,
+                assetFileCount = assetFileCount,
+                nativeArchitectures = nativeArchitectures.toList().sorted(),
+                staticAnalysisLimitReached = staticAnalysisLimitReached
+            )
         } catch (_: Exception) {
-            ApkFileSignals(usesKnownPacker, hasNativeLibraries)
+            ApkFileSignals(
+                usesKnownPacker = usesKnownPacker,
+                hasNativeLibraries = hasNativeLibraries,
+                apkFileCount = apkFileCount,
+                dexFileCount = dexFileCount,
+                nativeLibraryCount = nativeLibraryCount,
+                assetFileCount = assetFileCount,
+                nativeArchitectures = nativeArchitectures.toList().sorted(),
+                staticAnalysisLimitReached = staticAnalysisLimitReached
+            )
         }
     }
 
@@ -614,6 +944,26 @@ class PermissionScanner(private val context: Context) {
                     signature.category,
                     signature.purpose,
                     signature.riskWeight
+                )
+            }
+        }
+    }
+
+    private fun matchStaticText(
+        text: String,
+        found: MutableMap<String, StaticFinding>,
+        sourceName: String
+    ) {
+        for (signature in staticSignalSignatures) {
+            if (found.containsKey(signature.id)) continue
+            if (signature.patterns.any { text.contains(it.lowercase(Locale.US)) }) {
+                found[signature.id] = StaticFinding(
+                    signature.id,
+                    signature.title,
+                    signature.description,
+                    signature.severity,
+                    signature.weight,
+                    "${signature.evidence} in ${sourceName.takeLast(80)}"
                 )
             }
         }
@@ -764,13 +1114,27 @@ class PermissionScanner(private val context: Context) {
 
 private data class ApkInspection(
     val trackers: List<TrackerFinding>,
+    val staticFindings: List<StaticFinding>,
     val usesKnownPacker: Boolean,
-    val hasNativeLibraries: Boolean
+    val hasNativeLibraries: Boolean,
+    val apkSha256: String,
+    val apkFileCount: Int,
+    val dexFileCount: Int,
+    val nativeLibraryCount: Int,
+    val assetFileCount: Int,
+    val nativeArchitectures: List<String>,
+    val staticAnalysisLimitReached: Boolean
 )
 
 private data class ApkFileSignals(
     val usesKnownPacker: Boolean,
-    val hasNativeLibraries: Boolean
+    val hasNativeLibraries: Boolean,
+    val apkFileCount: Int,
+    val dexFileCount: Int,
+    val nativeLibraryCount: Int,
+    val assetFileCount: Int,
+    val nativeArchitectures: List<String>,
+    val staticAnalysisLimitReached: Boolean
 )
 
 private data class TrackerSignature(
@@ -779,6 +1143,16 @@ private data class TrackerSignature(
     val category: String,
     val purpose: String,
     val riskWeight: Int,
+    val patterns: List<String>
+)
+
+private data class StaticSignalSignature(
+    val id: String,
+    val title: String,
+    val description: String,
+    val severity: String,
+    val weight: Int,
+    val evidence: String,
     val patterns: List<String>
 )
 
@@ -796,5 +1170,24 @@ private data class TrackerFinding(
             .put("category", category)
             .put("purpose", purpose)
             .put("riskWeight", riskWeight)
+    }
+}
+
+private data class StaticFinding(
+    val id: String,
+    val title: String,
+    val description: String,
+    val severity: String,
+    val weight: Int,
+    val evidence: String
+) {
+    fun toJson(): JSONObject {
+        return JSONObject()
+            .put("id", id)
+            .put("title", title)
+            .put("description", description)
+            .put("severity", severity)
+            .put("weight", weight)
+            .put("evidence", evidence)
     }
 }

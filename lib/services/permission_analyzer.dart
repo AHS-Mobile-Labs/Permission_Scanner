@@ -254,6 +254,27 @@ class PermissionAnalyzer {
       );
     }
 
+    for (final finding in baseInfo.staticFindings) {
+      addSignal(
+        id: 'static_${finding.id}',
+        title: finding.title,
+        description: finding.description,
+        severity: finding.severity,
+        weight: finding.weight,
+      );
+    }
+
+    if (baseInfo.nativeLibraryCount >= 6) {
+      addSignal(
+        id: 'native_code_surface',
+        title: 'Large native code surface',
+        description:
+            'The APK includes several native libraries. Native code is normal for many apps, but it reduces what a manifest-only scan can explain.',
+        severity: 'medium',
+        weight: 5,
+      );
+    }
+
     if (baseInfo.isDebuggable && !baseInfo.isSystemApp) {
       addSignal(
         id: 'debuggable_release',

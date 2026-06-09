@@ -163,6 +163,13 @@ List<AppInfo> parseAppsFromJson(String jsonString) {
               (item) => TrackerInfo.fromJson(Map<String, dynamic>.from(item)),
             )
             .toList();
+        final staticFindings = (appJson['staticFindings'] as List? ?? [])
+            .whereType<Map>()
+            .map(
+              (item) =>
+                  StaticScanFinding.fromJson(Map<String, dynamic>.from(item)),
+            )
+            .toList();
 
         apps.add(
           AppInfo(
@@ -177,11 +184,25 @@ List<AppInfo> parseAppsFromJson(String jsonString) {
             installSource: installSource,
             installerPackageName: installerPackageName,
             trackers: trackers,
+            staticFindings: staticFindings,
+            signerSha256Digests: List<String>.from(
+              appJson['signerSha256Digests'] as List? ?? [],
+            ),
+            nativeArchitectures: List<String>.from(
+              appJson['nativeArchitectures'] as List? ?? [],
+            ),
             serviceCount: appJson['serviceCount'] as int? ?? 0,
             receiverCount: appJson['receiverCount'] as int? ?? 0,
+            activityCount: appJson['activityCount'] as int? ?? 0,
+            providerCount: appJson['providerCount'] as int? ?? 0,
             targetSdkVersion: appJson['targetSdkVersion'] as int? ?? 0,
             minSdkVersion: appJson['minSdkVersion'] as int? ?? 0,
             apkSizeBytes: appJson['apkSizeBytes'] as int? ?? 0,
+            apkFileCount: appJson['apkFileCount'] as int? ?? 0,
+            dexFileCount: appJson['dexFileCount'] as int? ?? 0,
+            nativeLibraryCount: appJson['nativeLibraryCount'] as int? ?? 0,
+            assetFileCount: appJson['assetFileCount'] as int? ?? 0,
+            apkSha256: appJson['apkSha256'] as String? ?? '',
             firstInstallTime: _dateFromJson(appJson['firstInstallTime']),
             lastUpdateTime: _dateFromJson(appJson['lastUpdateTime']),
             hasLauncher: appJson['hasLauncher'] as bool? ?? true,
@@ -211,6 +232,8 @@ List<AppInfo> parseAppsFromJson(String jsonString) {
             isDebuggable: appJson['isDebuggable'] as bool? ?? false,
             usesKnownPacker: appJson['usesKnownPacker'] as bool? ?? false,
             hasNativeLibraries: appJson['hasNativeLibraries'] as bool? ?? false,
+            staticAnalysisLimitReached:
+                appJson['staticAnalysisLimitReached'] as bool? ?? false,
           ),
         );
       } catch (e) {
