@@ -66,6 +66,44 @@ class RiskSignal {
   };
 }
 
+class StaticScanFinding {
+  final String id;
+  final String title;
+  final String description;
+  final String severity;
+  final int weight;
+  final String evidence;
+
+  const StaticScanFinding({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.severity,
+    this.weight = 0,
+    this.evidence = '',
+  });
+
+  factory StaticScanFinding.fromJson(Map<String, dynamic> json) {
+    return StaticScanFinding(
+      id: json['id'] as String? ?? 'static_finding',
+      title: json['title'] as String? ?? 'Static scan finding',
+      description: json['description'] as String? ?? '',
+      severity: json['severity'] as String? ?? 'medium',
+      weight: json['weight'] as int? ?? 0,
+      evidence: json['evidence'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'description': description,
+    'severity': severity,
+    'weight': weight,
+    'evidence': evidence,
+  };
+}
+
 class AppInfo {
   final String packageName;
   final String appName;
@@ -81,11 +119,21 @@ class AppInfo {
   final List<TrackerInfo> trackers;
   final List<RiskSignal> riskSignals;
   final List<String> malwareIndicators;
+  final List<StaticScanFinding> staticFindings;
+  final List<String> signerSha256Digests;
+  final List<String> nativeArchitectures;
   final int serviceCount;
   final int receiverCount;
+  final int activityCount;
+  final int providerCount;
   final int targetSdkVersion;
   final int minSdkVersion;
   final int apkSizeBytes;
+  final int apkFileCount;
+  final int dexFileCount;
+  final int nativeLibraryCount;
+  final int assetFileCount;
+  final String apkSha256;
   final DateTime? firstInstallTime;
   final DateTime? lastUpdateTime;
   final bool hasLauncher;
@@ -108,6 +156,7 @@ class AppInfo {
   final bool isDebuggable;
   final bool usesKnownPacker;
   final bool hasNativeLibraries;
+  final bool staticAnalysisLimitReached;
 
   AppInfo({
     required this.packageName,
@@ -123,11 +172,21 @@ class AppInfo {
     this.trackers = const [],
     this.riskSignals = const [],
     this.malwareIndicators = const [],
+    this.staticFindings = const [],
+    this.signerSha256Digests = const [],
+    this.nativeArchitectures = const [],
     this.serviceCount = 0,
     this.receiverCount = 0,
+    this.activityCount = 0,
+    this.providerCount = 0,
     this.targetSdkVersion = 0,
     this.minSdkVersion = 0,
     this.apkSizeBytes = 0,
+    this.apkFileCount = 0,
+    this.dexFileCount = 0,
+    this.nativeLibraryCount = 0,
+    this.assetFileCount = 0,
+    this.apkSha256 = '',
     this.firstInstallTime,
     this.lastUpdateTime,
     this.hasLauncher = true,
@@ -150,6 +209,7 @@ class AppInfo {
     this.isDebuggable = false,
     this.usesKnownPacker = false,
     this.hasNativeLibraries = false,
+    this.staticAnalysisLimitReached = false,
   });
 
   AppInfo copyWith({
@@ -166,11 +226,21 @@ class AppInfo {
     List<TrackerInfo>? trackers,
     List<RiskSignal>? riskSignals,
     List<String>? malwareIndicators,
+    List<StaticScanFinding>? staticFindings,
+    List<String>? signerSha256Digests,
+    List<String>? nativeArchitectures,
     int? serviceCount,
     int? receiverCount,
+    int? activityCount,
+    int? providerCount,
     int? targetSdkVersion,
     int? minSdkVersion,
     int? apkSizeBytes,
+    int? apkFileCount,
+    int? dexFileCount,
+    int? nativeLibraryCount,
+    int? assetFileCount,
+    String? apkSha256,
     DateTime? firstInstallTime,
     DateTime? lastUpdateTime,
     bool? hasLauncher,
@@ -193,6 +263,7 @@ class AppInfo {
     bool? isDebuggable,
     bool? usesKnownPacker,
     bool? hasNativeLibraries,
+    bool? staticAnalysisLimitReached,
   }) {
     return AppInfo(
       packageName: packageName ?? this.packageName,
@@ -209,11 +280,21 @@ class AppInfo {
       trackers: trackers ?? this.trackers,
       riskSignals: riskSignals ?? this.riskSignals,
       malwareIndicators: malwareIndicators ?? this.malwareIndicators,
+      staticFindings: staticFindings ?? this.staticFindings,
+      signerSha256Digests: signerSha256Digests ?? this.signerSha256Digests,
+      nativeArchitectures: nativeArchitectures ?? this.nativeArchitectures,
       serviceCount: serviceCount ?? this.serviceCount,
       receiverCount: receiverCount ?? this.receiverCount,
+      activityCount: activityCount ?? this.activityCount,
+      providerCount: providerCount ?? this.providerCount,
       targetSdkVersion: targetSdkVersion ?? this.targetSdkVersion,
       minSdkVersion: minSdkVersion ?? this.minSdkVersion,
       apkSizeBytes: apkSizeBytes ?? this.apkSizeBytes,
+      apkFileCount: apkFileCount ?? this.apkFileCount,
+      dexFileCount: dexFileCount ?? this.dexFileCount,
+      nativeLibraryCount: nativeLibraryCount ?? this.nativeLibraryCount,
+      assetFileCount: assetFileCount ?? this.assetFileCount,
+      apkSha256: apkSha256 ?? this.apkSha256,
       firstInstallTime: firstInstallTime ?? this.firstInstallTime,
       lastUpdateTime: lastUpdateTime ?? this.lastUpdateTime,
       hasLauncher: hasLauncher ?? this.hasLauncher,
@@ -242,6 +323,8 @@ class AppInfo {
       isDebuggable: isDebuggable ?? this.isDebuggable,
       usesKnownPacker: usesKnownPacker ?? this.usesKnownPacker,
       hasNativeLibraries: hasNativeLibraries ?? this.hasNativeLibraries,
+      staticAnalysisLimitReached:
+          staticAnalysisLimitReached ?? this.staticAnalysisLimitReached,
     );
   }
 
@@ -254,6 +337,12 @@ class AppInfo {
     final riskSignals = (json['riskSignals'] as List? ?? [])
         .whereType<Map>()
         .map((item) => RiskSignal.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+    final staticFindings = (json['staticFindings'] as List? ?? [])
+        .whereType<Map>()
+        .map(
+          (item) => StaticScanFinding.fromJson(Map<String, dynamic>.from(item)),
+        )
         .toList();
     return AppInfo(
       packageName: json['packageName'] as String,
@@ -271,11 +360,25 @@ class AppInfo {
       malwareIndicators: List<String>.from(
         json['malwareIndicators'] as List? ?? [],
       ),
+      staticFindings: staticFindings,
+      signerSha256Digests: List<String>.from(
+        json['signerSha256Digests'] as List? ?? [],
+      ),
+      nativeArchitectures: List<String>.from(
+        json['nativeArchitectures'] as List? ?? [],
+      ),
       serviceCount: json['serviceCount'] as int? ?? 0,
       receiverCount: json['receiverCount'] as int? ?? 0,
+      activityCount: json['activityCount'] as int? ?? 0,
+      providerCount: json['providerCount'] as int? ?? 0,
       targetSdkVersion: json['targetSdkVersion'] as int? ?? 0,
       minSdkVersion: json['minSdkVersion'] as int? ?? 0,
       apkSizeBytes: json['apkSizeBytes'] as int? ?? 0,
+      apkFileCount: json['apkFileCount'] as int? ?? 0,
+      dexFileCount: json['dexFileCount'] as int? ?? 0,
+      nativeLibraryCount: json['nativeLibraryCount'] as int? ?? 0,
+      assetFileCount: json['assetFileCount'] as int? ?? 0,
+      apkSha256: json['apkSha256'] as String? ?? '',
       firstInstallTime: _dateFromJson(json['firstInstallTime']),
       lastUpdateTime: _dateFromJson(json['lastUpdateTime']),
       hasLauncher: json['hasLauncher'] as bool? ?? true,
@@ -301,6 +404,8 @@ class AppInfo {
       isDebuggable: json['isDebuggable'] as bool? ?? false,
       usesKnownPacker: json['usesKnownPacker'] as bool? ?? false,
       hasNativeLibraries: json['hasNativeLibraries'] as bool? ?? false,
+      staticAnalysisLimitReached:
+          json['staticAnalysisLimitReached'] as bool? ?? false,
     );
   }
 
@@ -318,11 +423,23 @@ class AppInfo {
     'trackers': trackers.map((tracker) => tracker.toJson()).toList(),
     'riskSignals': riskSignals.map((signal) => signal.toJson()).toList(),
     'malwareIndicators': malwareIndicators,
+    'staticFindings': staticFindings
+        .map((finding) => finding.toJson())
+        .toList(),
+    'signerSha256Digests': signerSha256Digests,
+    'nativeArchitectures': nativeArchitectures,
     'serviceCount': serviceCount,
     'receiverCount': receiverCount,
+    'activityCount': activityCount,
+    'providerCount': providerCount,
     'targetSdkVersion': targetSdkVersion,
     'minSdkVersion': minSdkVersion,
     'apkSizeBytes': apkSizeBytes,
+    'apkFileCount': apkFileCount,
+    'dexFileCount': dexFileCount,
+    'nativeLibraryCount': nativeLibraryCount,
+    'assetFileCount': assetFileCount,
+    'apkSha256': apkSha256,
     'firstInstallTime': firstInstallTime?.millisecondsSinceEpoch,
     'lastUpdateTime': lastUpdateTime?.millisecondsSinceEpoch,
     'hasLauncher': hasLauncher,
@@ -345,6 +462,7 @@ class AppInfo {
     'isDebuggable': isDebuggable,
     'usesKnownPacker': usesKnownPacker,
     'hasNativeLibraries': hasNativeLibraries,
+    'staticAnalysisLimitReached': staticAnalysisLimitReached,
   };
 
   static RiskLevel _riskLevelFromString(String? value) {

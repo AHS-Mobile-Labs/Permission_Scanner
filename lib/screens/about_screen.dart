@@ -190,6 +190,14 @@ class AboutScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 SocialMediaButton(
+                  label: 'Website: ahsmobilelabs.website',
+                  icon: Icons.language_rounded,
+                  url: 'https://ahsmobilelabs.website/',
+                  backgroundColor: const Color(0xFFEFF6FF),
+                  iconColor: const Color(0xFF2563EB),
+                ),
+                const SizedBox(height: 10),
+                SocialMediaButton(
                   label: 'Instagram @ahsmobilelabs',
                   icon: Icons.camera_alt_outlined,
                   url: 'https://instagram.com/ahsmobilelabs',
