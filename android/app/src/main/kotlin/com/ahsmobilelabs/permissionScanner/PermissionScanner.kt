@@ -3,6 +3,7 @@ package com.ahsmobilelabs.permissionScanner.opensoucre
 import android.content.ContentValues
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.content.pm.ComponentInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -15,6 +16,7 @@ import android.graphics.pdf.PdfDocument
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import org.json.JSONArray
@@ -67,6 +69,29 @@ class PermissionScanner(private val context: Context) {
         "com.realme.store" to "Realme Store"
     )
 
+    private val advertisingIdentifierConsumerIds = setOf(
+        "admob",
+        "facebook_sdk",
+        "facebook_audience_network",
+        "appsflyer",
+        "adjust",
+        "branch",
+        "kochava",
+        "airbridge",
+        "singular",
+        "tenjin",
+        "unity_ads",
+        "applovin",
+        "ironsource",
+        "inmobi",
+        "pangle",
+        "vungle",
+        "chartboost",
+        "tapjoy",
+        "mintegral",
+        "fyber"
+    )
+
     private val trackerSignatures = listOf(
         TrackerSignature(
             "firebase_analytics",
@@ -74,7 +99,14 @@ class PermissionScanner(private val context: Context) {
             "Analytics",
             "Measures app usage, audiences, campaigns, and engagement.",
             5,
-            listOf("com/google/firebase/analytics", "firebase-analytics", "google_app_id")
+            listOf(
+                "com/google/firebase/analytics",
+                "com/google/android/gms/measurement",
+                "firebase-analytics",
+                "google_app_id",
+                "firebase_analytics_collection_enabled",
+                "app_measurement"
+            )
         ),
         TrackerSignature(
             "facebook_sdk",
@@ -82,7 +114,13 @@ class PermissionScanner(private val context: Context) {
             "Social/Ads",
             "Supports Facebook login, app events, attribution, and ad measurement.",
             7,
-            listOf("com/facebook", "facebook_app_id", "facebook_client_token")
+            listOf(
+                "com/facebook",
+                "com.facebook.sdk.ApplicationId",
+                "facebook_app_id",
+                "facebook_client_token",
+                "facebook_auto_log_app_events_enabled"
+            )
         ),
         TrackerSignature(
             "appsflyer",
@@ -98,7 +136,14 @@ class PermissionScanner(private val context: Context) {
             "Advertising",
             "Displays ads and measures ad interactions.",
             8,
-            listOf("com/google/android/gms/ads", "com/google/ads", "play-services-ads")
+            listOf(
+                "com/google/android/gms/ads",
+                "com/google/ads",
+                "play-services-ads",
+                "com.google.android.gms.ads.APPLICATION_ID",
+                "MobileAdsInitProvider",
+                "AdActivity"
+            )
         ),
         TrackerSignature(
             "onesignal",
@@ -616,9 +661,9 @@ class PermissionScanner(private val context: Context) {
         }
     }
 
-    private fun emptyApkInspection(): ApkInspection {
+    private fun emptyApkInspection(trackers: List<TrackerFinding> = emptyList()): ApkInspection {
         return ApkInspection(
-            trackers = emptyList(),
+            trackers = trackers,
             staticFindings = emptyList(),
             usesKnownPacker = false,
             hasNativeLibraries = false,
@@ -630,6 +675,40 @@ class PermissionScanner(private val context: Context) {
             nativeArchitectures = emptyList(),
             staticAnalysisLimitReached = false
         )
+    }
+
+    private fun inspectPackageMetadata(
+        pkg: PackageInfo,
+        appInfo: ApplicationInfo,
+        permissions: Set<String>
+    ): ApkInspection {
+        val found = linkedMapOf<String, TrackerFinding>()
+        matchTrackerText(pkg.packageName, found, pkg.packageName, "Package metadata", 58)
+        appInfo.className?.let {
+            matchTrackerText(it, found, it, "Application class", 72)
+        }
+        appInfo.processName?.let {
+            matchTrackerText(it, found, it, "Application process", 58)
+        }
+        appInfo.metaData?.let {
+            matchBundleText(it, found, "Application metadata")
+        }
+        permissions.forEach {
+            matchTrackerText(it, found, it, "Requested permission", 60)
+        }
+        pkg.activities?.forEach {
+            matchComponentText(it, found, "Activity")
+        }
+        pkg.services?.forEach {
+            matchComponentText(it, found, "Service")
+        }
+        pkg.receivers?.forEach {
+            matchComponentText(it, found, "Receiver")
+        }
+        pkg.providers?.forEach {
+            matchComponentText(it, found, "Provider")
+        }
+        return emptyApkInspection(trackers = found.values.toList())
     }
 
     @Suppress("DEPRECATION")
@@ -829,6 +908,7 @@ class PermissionScanner(private val context: Context) {
         val appName = getAppName(appInfo, pkg.packageName)
         val installerRaw = if (isArchive) null else getRawInstallerPackage(pkg.packageName)
         val hasLauncher = !isArchive && packageManager.getLaunchIntentForPackage(pkg.packageName) != null
+        val metadataInspection = inspectPackageMetadata(pkg, appInfo, permissions)
         // APK inspection is intentionally bounded and interruptible. Startup uses a
         // fast metadata pass; full tracker byte scanning only runs for explicit or
         // background deep refreshes.
@@ -837,10 +917,11 @@ class PermissionScanner(private val context: Context) {
                 appInfo,
                 permissions,
                 allowDexScan = !isSystem,
-                includeFileHash = isArchive
+                includeFileHash = isArchive,
+                seedTrackers = metadataInspection.trackers
             )
         } else {
-            emptyApkInspection()
+            metadataInspection
         }
         val fakeSystemRisk = !isSystem &&
             classifyInstallSource(appInfo, installerRaw) == "Unknown" &&
@@ -961,9 +1042,11 @@ class PermissionScanner(private val context: Context) {
         appInfo: ApplicationInfo,
         permissions: Set<String>,
         allowDexScan: Boolean,
-        includeFileHash: Boolean
+        includeFileHash: Boolean,
+        seedTrackers: List<TrackerFinding> = emptyList()
     ): ApkInspection {
         val found = linkedMapOf<String, TrackerFinding>()
+        seedTrackers.forEach { found[it.id] = it }
         val staticFindings = linkedMapOf<String, StaticFinding>()
         var usesKnownPacker = false
         var hasNativeLibraries = false
@@ -997,8 +1080,8 @@ class PermissionScanner(private val context: Context) {
         }
 
         val hasAdId = permissions.contains("com.google.android.gms.permission.AD_ID")
-        val hasKnownAdSdk = found.values.any { it.category.lowercase(Locale.US).contains("ad") }
-        if (hasAdId && !hasKnownAdSdk) {
+        val hasKnownAdIdConsumer = found.values.any { isAdvertisingIdentifierConsumer(it) }
+        if (hasAdId && !hasKnownAdIdConsumer) {
             found["unknown_ad_id"] = TrackerFinding(
                 "unknown_ad_id",
                 "Unknown advertising SDK",
@@ -1133,9 +1216,11 @@ class PermissionScanner(private val context: Context) {
         sourceType: String,
         confidence: Int
     ) {
+        val lowerText = text.lowercase(Locale.US)
+        val slashText = lowerText.replace('.', '/')
         for (signature in trackerSignatures) {
-            val matchedPattern = signature.patterns.firstOrNull {
-                text.contains(it.lowercase(Locale.US))
+            val matchedPattern = signature.patterns.firstOrNull { pattern ->
+                matchesSearchPattern(lowerText, slashText, pattern)
             } ?: continue
             val existing = found[signature.id]
             if (existing != null && existing.confidence >= confidence) continue
@@ -1150,6 +1235,54 @@ class PermissionScanner(private val context: Context) {
                 confidence
             )
         }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun matchBundleText(
+        bundle: Bundle,
+        found: MutableMap<String, TrackerFinding>,
+        sourceType: String
+    ) {
+        for (key in bundle.keySet()) {
+            val value = try {
+                bundle.get(key)?.toString() ?: ""
+            } catch (_: Exception) {
+                ""
+            }
+            val text = if (value.isEmpty()) key else "$key $value"
+            matchTrackerText(text, found, key, sourceType, 84)
+        }
+    }
+
+    private fun matchComponentText(
+        component: ComponentInfo,
+        found: MutableMap<String, TrackerFinding>,
+        sourceType: String
+    ) {
+        matchTrackerText(component.name, found, component.name, sourceType, 82)
+        component.processName?.let {
+            matchTrackerText(it, found, component.name, "$sourceType process", 64)
+        }
+        component.metaData?.let {
+            matchBundleText(it, found, "$sourceType metadata")
+        }
+    }
+
+    private fun matchesSearchPattern(lowerText: String, slashText: String, pattern: String): Boolean {
+        val lowerPattern = pattern.lowercase(Locale.US)
+        if (lowerText.contains(lowerPattern)) return true
+        val slashPattern = lowerPattern.replace('.', '/')
+        if (slashText.contains(slashPattern)) return true
+        val dotPattern = lowerPattern.replace('/', '.')
+        return lowerText.contains(dotPattern)
+    }
+
+    private fun isAdvertisingIdentifierConsumer(finding: TrackerFinding): Boolean {
+        val category = finding.category.lowercase(Locale.US)
+        return finding.id in advertisingIdentifierConsumerIds ||
+            category.contains("advertising") ||
+            category.contains("ads") ||
+            category.contains("attribution")
     }
 
     private fun matchStaticText(

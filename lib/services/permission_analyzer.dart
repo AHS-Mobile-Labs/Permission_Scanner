@@ -64,8 +64,9 @@ class PermissionAnalyzer {
 
   static AppInfo enrichAppInfo(AppInfo baseInfo) {
     final permissionSet = baseInfo.permissions.toSet();
+    final nativeTrackers = _sanitizeTrackers(baseInfo);
     final trackers = _deduplicateTrackers([
-      ...baseInfo.trackers,
+      ...nativeTrackers,
       ..._inferTrackers(baseInfo),
     ]);
     final dangerousCount = countDangerousPermissions(baseInfo.permissions);
@@ -440,25 +441,86 @@ class PermissionAnalyzer {
     );
     final knownAdTracker = app.trackers.any(
       (tracker) =>
-          tracker.category.toLowerCase().contains('ad') ||
-          tracker.id.contains('admob') ||
-          tracker.id.contains('ads'),
+          !_isUnknownAdvertisingIdentifierTracker(tracker) &&
+          _isKnownAdvertisingIdentifierConsumer(tracker),
     );
 
-    if (hasAdId && !knownAdTracker) {
+    if (hasAdId && !knownAdTracker && _hasCompletedTrackerScan(app)) {
       trackers.add(
         const TrackerInfo(
-          id: 'unknown_advertising_id',
+          id: 'unknown_ad_id',
           name: 'Unknown advertising identifier use',
           category: 'Advertising',
           purpose:
-              'The app requests the Google advertising identifier, but no known ad SDK was identified in the lightweight scan.',
+              'The app requests the Google advertising identifier, but no known ad SDK was identified in the APK scan.',
           riskWeight: 7,
+          evidence:
+              'Permission com.google.android.gms.permission.AD_ID is requested.',
+          confidence: 60,
         ),
       );
     }
 
     return trackers;
+  }
+
+  static List<TrackerInfo> _sanitizeTrackers(AppInfo app) {
+    final hasKnownAdIdConsumer = app.trackers.any(
+      (tracker) =>
+          !_isUnknownAdvertisingIdentifierTracker(tracker) &&
+          _isKnownAdvertisingIdentifierConsumer(tracker),
+    );
+    final hasCompletedScan = _hasCompletedTrackerScan(app);
+
+    return app.trackers.where((tracker) {
+      if (!_isUnknownAdvertisingIdentifierTracker(tracker)) return true;
+      if (hasKnownAdIdConsumer) return false;
+      return hasCompletedScan &&
+          (tracker.evidence.isNotEmpty || tracker.confidence > 0);
+    }).toList();
+  }
+
+  static bool _hasCompletedTrackerScan(AppInfo app) {
+    return app.apkFileCount > 0 ||
+        app.dexFileCount > 0 ||
+        app.nativeLibraryCount > 0 ||
+        app.staticAnalysisLimitReached ||
+        app.staticFindings.isNotEmpty ||
+        app.apkSha256.isNotEmpty;
+  }
+
+  static bool _isUnknownAdvertisingIdentifierTracker(TrackerInfo tracker) {
+    return tracker.id == 'unknown_ad_id' ||
+        tracker.id == 'unknown_advertising_id' ||
+        tracker.name.toLowerCase().contains('unknown advertising identifier');
+  }
+
+  static bool _isKnownAdvertisingIdentifierConsumer(TrackerInfo tracker) {
+    final id = tracker.id.toLowerCase();
+    final category = tracker.category.toLowerCase();
+    return category.contains('advertising') ||
+        category.contains('ads') ||
+        category.contains('attribution') ||
+        id == 'admob' ||
+        id == 'facebook_sdk' ||
+        id == 'facebook_audience_network' ||
+        id == 'appsflyer' ||
+        id == 'adjust' ||
+        id == 'branch' ||
+        id == 'kochava' ||
+        id == 'airbridge' ||
+        id == 'singular' ||
+        id == 'tenjin' ||
+        id == 'unity_ads' ||
+        id == 'applovin' ||
+        id == 'ironsource' ||
+        id == 'inmobi' ||
+        id == 'pangle' ||
+        id == 'vungle' ||
+        id == 'chartboost' ||
+        id == 'tapjoy' ||
+        id == 'mintegral' ||
+        id == 'fyber';
   }
 
   static List<TrackerInfo> _deduplicateTrackers(List<TrackerInfo> trackers) {

@@ -239,6 +239,17 @@ String _permissionDisplayName(String permission) {
       permission.split('.').last.replaceAll('_', ' ');
 }
 
+bool _needsTrackerDeepScan(List<AppInfo> apps) {
+  return apps.any((app) {
+    if (app.isSystemApp) return false;
+    return app.apkFileCount == 0 &&
+        app.dexFileCount == 0 &&
+        app.nativeLibraryCount == 0 &&
+        !app.staticAnalysisLimitReached &&
+        app.apkSha256.isEmpty;
+  });
+}
+
 /// Main provider for the installed-apps list.
 ///
 /// Strategy:
@@ -360,15 +371,19 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
   ) async {
     try {
       final fingerprint = await service.getAppsFingerprint();
-      if (fingerprint.isEmpty || !cacheService.hasAppsChanged(fingerprint)) {
+      final cachedApps = await cacheService.getCachedAppsAsync();
+      final needsTrackerScan = _needsTrackerDeepScan(cachedApps);
+      if ((fingerprint.isEmpty && !needsTrackerScan) ||
+          (fingerprint.isNotEmpty &&
+              !cacheService.hasAppsChanged(fingerprint) &&
+              !needsTrackerScan)) {
         return; // Nothing changed — skip expensive scan
       }
 
       final freshApps = await service.getInstalledApps(deepScan: true);
       final enrichedApps = await compute(_enrichAppsInBackground, freshApps);
-      final previousApps = await cacheService.getCachedAppsAsync();
       final permissionChanges = _detectPermissionChanges(
-        previousApps,
+        cachedApps,
         enrichedApps,
       );
       if (permissionChanges.isNotEmpty) {
@@ -433,18 +448,9 @@ class InstalledAppsNotifier extends AsyncNotifier<List<AppInfo>> {
       // Yield to the event loop to let UI update before heavy work
       await Future.delayed(Duration.zero);
 
-      // Check fingerprint first - only rescan if apps changed
-      final fingerprint = await service.getAppsFingerprint();
-      if (fingerprint.isNotEmpty && !cacheService.hasAppsChanged(fingerprint)) {
-        // No changes detected - just return cached data
-        final cachedApps = await cacheService.getCachedAppsAsync();
-        if (cachedApps.isNotEmpty) {
-          state = AsyncData(cachedApps);
-          return;
-        }
-      }
-
-      // Apps changed or no cache - fetch and enrich
+      // Explicit refresh should re-run the deep scanner even when the installed
+      // app fingerprint is unchanged, because tracker signatures can improve
+      // between app releases.
       final apps = await service.getInstalledApps(deepScan: true);
       await _enrichAndCache(apps, service, cacheService);
 
