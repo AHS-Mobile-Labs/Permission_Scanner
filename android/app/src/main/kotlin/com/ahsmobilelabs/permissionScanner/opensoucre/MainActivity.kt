@@ -49,7 +49,8 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "getInstalledApps" -> {
                     val deepScan = call.argument<Boolean>("deepScan") ?: false
-                    runScannerTask(result, "PERMISSION_ERROR", 60_000L) {
+                    val timeoutMs = if (deepScan) 90_000L else 30_000L
+                    runScannerTask(result, "PERMISSION_ERROR", timeoutMs) {
                         PermissionScanner(applicationContext)
                             .getInstalledAppsWithPermissions(deepScan = deepScan)
                     }

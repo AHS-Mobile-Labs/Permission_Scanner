@@ -15,7 +15,7 @@ class PermissionScannerService {
       final result = await platform
           .invokeMethod<String>('getInstalledApps', {'deepScan': deepScan})
           .timeout(
-            Duration(seconds: deepScan ? 65 : 20),
+            Duration(seconds: deepScan ? 95 : 20),
             onTimeout: () {
               AppLogger.info('App list fetch timeout - returning empty list');
               return '';
