@@ -2,6 +2,7 @@ package com.ahsmobilelabs.permissionScanner.opensoucre
 
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.ComponentInfo
 import android.content.pm.PackageInfo
@@ -29,6 +30,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.security.MessageDigest
 import java.util.Locale
+import android.util.Log
 import java.util.zip.ZipFile
 
 class PermissionScanner(private val context: Context) {
@@ -41,6 +43,9 @@ class PermissionScanner(private val context: Context) {
         } else {
             PackageManager.GET_SIGNATURES
         }
+
+    private val fastQueryFlags =
+        PackageManager.GET_PERMISSIONS or PackageManager.GET_META_DATA
 
     private val packageQueryFlags =
         PackageManager.GET_PERMISSIONS or
@@ -607,27 +612,62 @@ class PermissionScanner(private val context: Context) {
 
     fun getInstalledAppsWithPermissions(deepScan: Boolean = false): String {
         return try {
-            val packages: List<PackageInfo> =
-                packageManager.getInstalledPackages(packageQueryFlags)
+            val flagsToUse = if (deepScan) packageQueryFlags else fastQueryFlags
+            val packages: List<PackageInfo> = try {
+                packageManager.getInstalledPackages(flagsToUse)
+            } catch (e: Exception) {
+                Log.w("PermissionScanner", "Bulk package query with flags $flagsToUse failed (${e.message}); falling back to safe query", e)
+                try {
+                    // Fast fallback: query only permissions in bulk (fits in small Binder buffers)
+                    packageManager.getInstalledPackages(PackageManager.GET_PERMISSIONS)
+                } catch (e2: Exception) {
+                    Log.w("PermissionScanner", "Secondary bulk query failed (${e2.message}); querying individually", e2)
+                    val basePackages = packageManager.getInstalledPackages(0)
+                    basePackages.mapNotNull { basePkg ->
+                        try {
+                            packageManager.getPackageInfo(basePkg.packageName, PackageManager.GET_PERMISSIONS)
+                        } catch (_: Exception) {
+                            basePkg
+                        }
+                    }
+                }
+            }
+
+            // Batch query launcher activities once (2ms) instead of 300 individual IPC calls
+            val launcherPackages: Set<String> = try {
+                val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                packageManager.queryIntentActivities(launcherIntent, 0)
+                    .mapNotNull { it.activityInfo?.packageName }
+                    .toSet()
+            } catch (_: Exception) {
+                emptySet()
+            }
+
             val appsArray = JSONArray()
 
             for (pkg in packages) {
                 if (Thread.currentThread().isInterrupted) break
                 val appInfo = pkg.applicationInfo ?: continue
-                appsArray.put(buildAppJson(pkg, appInfo, isArchive = false, deepScan = deepScan))
+                appsArray.put(buildAppJson(pkg, appInfo, isArchive = false, deepScan = deepScan, launcherPackages = launcherPackages))
             }
 
             JSONObject().put("apps", appsArray).toString()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e("PermissionScanner", "Failed to get installed apps", e)
             ""
         }
     }
 
     fun scanApk(uriOrPath: String): String {
         return try {
-            val apkFile = resolveApkFile(uriOrPath) ?: return ""
-            val pkg = packageManager.getPackageArchiveInfo(apkFile.absolutePath, packageQueryFlags)
-                ?: return ""
+            val apkFile = resolveApkFile(uriOrPath) ?: run {
+                Log.e("PermissionScanner", "Could not resolve APK file: $uriOrPath")
+                return ""
+            }
+            val pkg = packageManager.getPackageArchiveInfo(apkFile.absolutePath, packageQueryFlags) ?: run {
+                Log.e("PermissionScanner", "packageManager.getPackageArchiveInfo returned null for: ${apkFile.absolutePath}")
+                return ""
+            }
             val appInfo = pkg.applicationInfo ?: ApplicationInfo()
             appInfo.sourceDir = apkFile.absolutePath
             appInfo.publicSourceDir = apkFile.absolutePath
@@ -637,7 +677,8 @@ class PermissionScanner(private val context: Context) {
             json.put("apkSizeBytes", apkFile.length().coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
 
             JSONObject().put("apps", JSONArray().put(json)).toString()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e("PermissionScanner", "Exception during scanApk for $uriOrPath", e)
             ""
         }
     }
@@ -656,7 +697,8 @@ class PermissionScanner(private val context: Context) {
             val digest = MessageDigest.getInstance("SHA-256")
             val hash = digest.digest(sb.toString().toByteArray())
             hash.joinToString("") { "%02x".format(it) }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e("PermissionScanner", "Failed to compute apps fingerprint", e)
             ""
         }
     }
@@ -840,7 +882,10 @@ class PermissionScanner(private val context: Context) {
         try {
             val iconCacheDir = File(context.cacheDir, "app_icons")
             if (iconCacheDir.exists()) iconCacheDir.deleteRecursively()
-        } catch (_: Exception) {
+            val apkScansDir = File(context.cacheDir, "apk_scans")
+            if (apkScansDir.exists()) apkScansDir.deleteRecursively()
+        } catch (e: Exception) {
+            Log.e("PermissionScanner", "Failed to clear caches", e)
         }
     }
 
@@ -901,13 +946,14 @@ class PermissionScanner(private val context: Context) {
         pkg: PackageInfo,
         appInfo: ApplicationInfo,
         isArchive: Boolean,
-        deepScan: Boolean
+        deepScan: Boolean,
+        launcherPackages: Set<String> = emptySet()
     ): JSONObject {
         val permissions = pkg.requestedPermissions?.toSet() ?: emptySet()
         val isSystem = !isArchive && isSystemApp(appInfo)
         val appName = getAppName(appInfo, pkg.packageName)
-        val installerRaw = if (isArchive) null else getRawInstallerPackage(pkg.packageName)
-        val hasLauncher = !isArchive && packageManager.getLaunchIntentForPackage(pkg.packageName) != null
+        val installerRaw = if (isArchive || isSystem) null else getRawInstallerPackage(pkg.packageName)
+        val hasLauncher = !isArchive && (launcherPackages.contains(pkg.packageName) || (launcherPackages.isEmpty() && packageManager.getLaunchIntentForPackage(pkg.packageName) != null))
         val metadataInspection = inspectPackageMetadata(pkg, appInfo, permissions)
         // APK inspection is intentionally bounded and interruptible. Startup uses a
         // fast metadata pass; full tracker byte scanning only runs for explicit or
@@ -957,11 +1003,11 @@ class PermissionScanner(private val context: Context) {
             put("isSystemApp", isSystem)
             put("installerPackageName", installerRaw ?: "")
             put("installSource", if (isArchive) "APK File" else classifyInstallSource(appInfo, installerRaw))
-            put("iconPath", if (isArchive) "" else getAppIcon(appInfo, pkg.lastUpdateTime))
+            put("iconPath", if (isArchive) "" else getAppIcon(appInfo, pkg.lastUpdateTime, hasLauncher, isSystem))
             put("permissions", JSONArray().apply { permissions.forEach { put(it) } })
             put("trackers", JSONArray().apply { inspection.trackers.forEach { put(it.toJson()) } })
             put("staticFindings", JSONArray().apply { inspection.staticFindings.forEach { put(it.toJson()) } })
-            put("signerSha256Digests", JSONArray().apply { signerSha256Digests(pkg).forEach { put(it) } })
+            put("signerSha256Digests", JSONArray().apply { if (deepScan || isArchive) signerSha256Digests(pkg).forEach { put(it) } })
             put("nativeArchitectures", JSONArray().apply { inspection.nativeArchitectures.forEach { put(it) } })
             put("serviceCount", pkg.services?.size ?: 0)
             put("receiverCount", pkg.receivers?.size ?: 0)
@@ -1021,6 +1067,14 @@ class PermissionScanner(private val context: Context) {
             if (uri.scheme == "content") {
                 val apkDir = File(context.cacheDir, "apk_scans")
                 if (!apkDir.exists()) apkDir.mkdirs()
+                // Clean older cached APKs so storage doesn't leak
+                val files = apkDir.listFiles()
+                if (files != null && files.size >= 3) {
+                    files.sortBy { it.lastModified() }
+                    for (i in 0 until files.size - 2) {
+                        files[i].delete()
+                    }
+                }
                 val outFile = File(apkDir, "selected_${System.currentTimeMillis()}.apk")
                 context.contentResolver.openInputStream(uri)?.use { input ->
                     FileOutputStream(outFile).use { output ->
@@ -1033,7 +1087,8 @@ class PermissionScanner(private val context: Context) {
             } else {
                 File(uriOrPath)
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e("PermissionScanner", "Failed to resolve APK for: $uriOrPath", e)
             null
         }
     }
@@ -1405,13 +1460,23 @@ class PermissionScanner(private val context: Context) {
         return names.any { permissions.contains(it) }
     }
 
-    private fun getAppIcon(app: ApplicationInfo, lastUpdateTime: Long): String {
+    private fun getAppIcon(
+        app: ApplicationInfo,
+        lastUpdateTime: Long,
+        hasLauncher: Boolean = true,
+        isSystem: Boolean = false
+    ): String {
         return try {
             val iconCacheDir = File(context.cacheDir, "app_icons")
             if (!iconCacheDir.exists()) iconCacheDir.mkdirs()
             val iconFile = File(iconCacheDir, "${app.packageName}.png")
             if (iconFile.exists() && (lastUpdateTime <= 0L || iconFile.lastModified() >= lastUpdateTime)) {
                 return iconFile.absolutePath
+            }
+
+            // Skip heavy icon generation for headless system background daemons without a launcher UI
+            if (isSystem && !hasLauncher) {
+                return ""
             }
 
             val drawable: Drawable = packageManager.getApplicationIcon(app)
@@ -1426,9 +1491,9 @@ class PermissionScanner(private val context: Context) {
                 drawable.draw(canvas)
                 bmp
             }
-            val scaled = Bitmap.createScaledBitmap(bitmap, 192, 192, true)
+            val scaled = Bitmap.createScaledBitmap(bitmap, 96, 96, true)
             FileOutputStream(iconFile).use { stream ->
-                scaled.compress(Bitmap.CompressFormat.PNG, 85, stream)
+                scaled.compress(Bitmap.CompressFormat.PNG, 80, stream)
             }
             iconFile.setLastModified(System.currentTimeMillis())
             if (scaled !== bitmap) {

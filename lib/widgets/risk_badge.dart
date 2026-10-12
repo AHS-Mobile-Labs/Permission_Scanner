@@ -76,13 +76,17 @@ class RiskBadge extends StatelessWidget {
         children: [
           Icon(_icon, size: compact ? 10 : 12, color: _color),
           const SizedBox(width: 4),
-          Text(
-            _label,
-            style: TextStyle(
-              color: _color,
-              fontSize: compact ? 10 : 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.1,
+          Flexible(
+            child: Text(
+              _label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: _color,
+                fontSize: compact ? 10 : 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.1,
+              ),
             ),
           ),
         ],

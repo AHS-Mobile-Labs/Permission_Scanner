@@ -63,12 +63,12 @@ class PrivacyAssistantService {
     }
     if (app.malwareIndicators.isNotEmpty) {
       items.add(
-        'Treat this as suspicious and verify the developer before keeping it installed.',
+        'Review declared sensitive capabilities and verify the developer or install source.',
       );
     }
     if (items.isEmpty) {
       items.add(
-        'No urgent action found. Keep the app updated and review permissions occasionally.',
+        'No major issues detected by this scan. Review permissions occasionally as app needs evolve.',
       );
     }
     return items;

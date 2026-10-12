@@ -1,17 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_scanner/screens/app_detail_screen.dart';
 import 'package:permission_scanner/services/app_providers.dart';
 import 'package:permission_scanner/utils/app_colors.dart';
 import 'package:permission_scanner/widgets/app_card.dart';
 import 'package:permission_scanner/widgets/filter_sort_bar.dart';
-import 'package:permission_scanner/screens/app_detail_screen.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController(
+      text: ref.read(searchQueryProvider),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleRefresh() async {
+    await ref.read(installedAppsProvider.notifier).forceRefresh();
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    ref.read(searchQueryProvider.notifier).state = '';
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final filteredAppsAsync = ref.watch(filteredAppsProvider);
+    final currentQuery = ref.watch(searchQueryProvider);
+
+    // Keep controller in sync if query changed externally
+    if (_searchController.text != currentQuery) {
+      _searchController.text = currentQuery;
+    }
 
     return Column(
       children: [
@@ -23,6 +59,7 @@ class HomeScreen extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                 child: SearchBar(
+                  controller: _searchController,
                   onChanged: (value) {
                     ref.read(searchQueryProvider.notifier).state = value;
                   },
@@ -34,7 +71,15 @@ class HomeScreen extends ConsumerWidget {
                       size: 20,
                     ),
                   ),
-                  hintText: 'Search apps...',
+                  trailing: [
+                    if (currentQuery.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear_rounded, size: 18),
+                        onPressed: _clearSearch,
+                        tooltip: 'Clear search',
+                      ),
+                  ],
+                  hintText: 'Search by app or package name...',
                 ),
               ),
               const FilterSortBar(),
@@ -43,79 +88,129 @@ class HomeScreen extends ConsumerWidget {
           ),
         ),
         Expanded(
-          child: filteredAppsAsync.when(
-            data: (apps) {
-              if (apps.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+          child: RefreshIndicator(
+            onRefresh: _handleRefresh,
+            color: AppColors.primary,
+            child: filteredAppsAsync.when(
+              skipLoadingOnReload: true,
+              data: (apps) {
+                if (apps.isEmpty) {
+                  return ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     children: [
-                      Icon(
-                        Icons.search_off_rounded,
-                        size: 48,
-                        color: AppColors.textLight,
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'No apps found',
-                        style: TextStyle(
-                          color: AppColors.textLight,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.4,
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.search_off_rounded,
+                                size: 54,
+                                color: AppColors.textLight,
+                              ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'No matching applications found',
+                                style: TextStyle(
+                                  color: AppColors.textDark,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'Try adjusting your search query or category filters.',
+                                style: TextStyle(
+                                  color: AppColors.textLight,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              if (currentQuery.isNotEmpty) ...[
+                                const SizedBox(height: 14),
+                                FilledButton.tonalIcon(
+                                  onPressed: _clearSearch,
+                                  icon: const Icon(
+                                    Icons.clear_rounded,
+                                    size: 16,
+                                  ),
+                                  label: const Text('Reset Search'),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
                       ),
                     ],
-                  ),
-                );
-              }
-              return ListView.builder(
-                padding: const EdgeInsets.only(top: 4, bottom: 16),
-                itemCount: apps.length,
-                itemBuilder: (context, index) {
-                  final app = apps[index];
-                  return RepaintBoundary(
-                    child: AppCard(
-                      app: app,
-                      onTap: () {
-                        ref.read(selectedAppProvider.notifier).state = app;
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => AppDetailScreen(app: app),
-                          ),
-                        );
-                      },
-                    ),
                   );
-                },
-              );
-            },
-            loading: () => const _HomeScreenSkeleton(),
-            error: (error, stack) => Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+                }
+                return ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.only(top: 4, bottom: 24),
+                  itemCount: apps.length,
+                  itemBuilder: (context, index) {
+                    final app = apps[index];
+                    return RepaintBoundary(
+                      child: AppCard(
+                        app: app,
+                        onTap: () {
+                          ref.read(selectedAppProvider.notifier).state = app;
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => AppDetailScreen(app: app),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                );
+              },
+              loading: () => const _HomeScreenSkeleton(),
+              error: (error, stack) => ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  const Icon(
-                    Icons.error_outline_rounded,
-                    size: 48,
-                    color: AppColors.riskDangerous,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Failed to load apps',
-                    style: const TextStyle(
-                      color: AppColors.textDark,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.45,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.error_outline_rounded,
+                              size: 48,
+                              color: AppColors.riskDangerous,
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Failed to load installed apps',
+                              style: TextStyle(
+                                color: AppColors.textDark,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '$error',
+                              style: const TextStyle(
+                                color: AppColors.textLight,
+                                fontSize: 12,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            FilledButton.icon(
+                              onPressed: _handleRefresh,
+                              icon: const Icon(Icons.refresh_rounded, size: 18),
+                              label: const Text('Retry Scan'),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$error',
-                    style: const TextStyle(
-                      color: AppColors.textLight,
-                      fontSize: 12,
-                    ),
-                    textAlign: TextAlign.center,
                   ),
                 ],
               ),

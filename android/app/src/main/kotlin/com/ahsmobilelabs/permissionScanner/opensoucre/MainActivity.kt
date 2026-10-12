@@ -49,7 +49,7 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "getInstalledApps" -> {
                     val deepScan = call.argument<Boolean>("deepScan") ?: false
-                    val timeoutMs = if (deepScan) 90_000L else 30_000L
+                    val timeoutMs = if (deepScan) 120_000L else 45_000L
                     runScannerTask(result, "PERMISSION_ERROR", timeoutMs) {
                         PermissionScanner(applicationContext)
                             .getInstalledAppsWithPermissions(deepScan = deepScan)
@@ -84,7 +84,11 @@ class MainActivity : FlutterActivity() {
                 "scanApk" -> {
                     val uri = call.argument<String>("uri") ?: ""
                     runScannerTask(result, "APK_SCAN_ERROR", 60_000L) {
-                        PermissionScanner(applicationContext).scanApk(uri)
+                        val json = PermissionScanner(applicationContext).scanApk(uri)
+                        if (json.isEmpty()) {
+                            throw IllegalArgumentException("Unable to parse APK. The file may be corrupt, inaccessible, or missing metadata.")
+                        }
+                        json
                     }
                 }
                 "exportPdfReport" -> {

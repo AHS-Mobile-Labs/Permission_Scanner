@@ -40,6 +40,7 @@ class _PrivacyTimelineScreenState extends ConsumerState<PrivacyTimelineScreen> {
         ],
       ),
       body: appsAsync.when(
+        skipLoadingOnReload: true,
         data: (apps) {
           final changes = changesAsync.valueOrNull ?? [];
           final overview = _TimelineOverview.from(apps, changes);

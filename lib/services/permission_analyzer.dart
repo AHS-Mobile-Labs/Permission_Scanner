@@ -4,58 +4,67 @@ import 'package:permission_scanner/utils/permission_database.dart';
 
 class PermissionAnalyzer {
   static const Map<String, int> _permissionWeights = {
-    'android.permission.ACCESS_BACKGROUND_LOCATION': 14,
-    'android.permission.ACCESS_FINE_LOCATION': 10,
-    'android.permission.ACCESS_COARSE_LOCATION': 7,
+    'android.permission.ACCESS_BACKGROUND_LOCATION': 12,
+    'android.permission.ACCESS_FINE_LOCATION': 8,
+    'android.permission.ACCESS_COARSE_LOCATION': 4,
     'android.permission.CAMERA': 8,
-    'android.permission.RECORD_AUDIO': 10,
-    'android.permission.READ_SMS': 16,
-    'android.permission.SEND_SMS': 18,
-    'android.permission.RECEIVE_SMS': 12,
-    'android.permission.READ_CALL_LOG': 14,
-    'android.permission.WRITE_CALL_LOG': 14,
-    'android.permission.READ_CONTACTS': 10,
-    'android.permission.WRITE_CONTACTS': 10,
-    'android.permission.READ_PHONE_STATE': 8,
-    'android.permission.READ_PHONE_NUMBERS': 10,
-    'android.permission.ANSWER_PHONE_CALLS': 11,
-    'android.permission.CALL_PHONE': 12,
-    'android.permission.BODY_SENSORS': 12,
-    'android.permission.BLUETOOTH_SCAN': 7,
-    'android.permission.BLUETOOTH_CONNECT': 5,
-    'android.permission.READ_CALENDAR': 8,
-    'android.permission.WRITE_CALENDAR': 8,
+    'android.permission.RECORD_AUDIO': 8,
+    'android.permission.READ_SMS': 12,
+    'android.permission.SEND_SMS': 14,
+    'android.permission.RECEIVE_SMS': 8,
+    'android.permission.READ_CALL_LOG': 12,
+    'android.permission.WRITE_CALL_LOG': 10,
+    'android.permission.READ_CONTACTS': 8,
+    'android.permission.WRITE_CONTACTS': 6,
+    'android.permission.READ_PHONE_STATE': 6,
+    'android.permission.READ_PHONE_NUMBERS': 8,
+    'android.permission.ANSWER_PHONE_CALLS': 8,
+    'android.permission.CALL_PHONE': 10,
+    'android.permission.BODY_SENSORS': 8,
+    'android.permission.BODY_SENSORS_BACKGROUND': 10,
+    'android.permission.BLUETOOTH_SCAN': 5,
+    'android.permission.BLUETOOTH_CONNECT': 4,
+    'android.permission.READ_CALENDAR': 6,
+    'android.permission.WRITE_CALENDAR': 6,
+    'android.permission.MANAGE_EXTERNAL_STORAGE': 12,
     'android.permission.READ_EXTERNAL_STORAGE': 6,
     'android.permission.WRITE_EXTERNAL_STORAGE': 6,
     'android.permission.READ_MEDIA_IMAGES': 5,
     'android.permission.READ_MEDIA_VIDEO': 5,
     'android.permission.READ_MEDIA_AUDIO': 4,
-    'android.permission.ACTIVITY_RECOGNITION': 5,
+    'android.permission.ACTIVITY_RECOGNITION': 4,
     'android.permission.POST_NOTIFICATIONS': 2,
+    'android.permission.NEARBY_WIFI_DEVICES': 4,
   };
 
   static RiskLevel analyzeRiskLevel(int dangerousPermissionCount) {
-    if (dangerousPermissionCount == 0) return RiskLevel.safe;
+    if (dangerousPermissionCount <= 0) return RiskLevel.safe;
     if (dangerousPermissionCount <= 3) return RiskLevel.medium;
-    if (dangerousPermissionCount <= 7) return RiskLevel.high;
+    if (dangerousPermissionCount <= 6) return RiskLevel.high;
     return RiskLevel.critical;
   }
 
   static RiskLevel riskLevelForScore(int score) {
-    if (score >= 85) return RiskLevel.safe;
-    if (score >= 65) return RiskLevel.medium;
-    if (score >= 40) return RiskLevel.high;
+    if (score >= 80) return RiskLevel.safe;
+    if (score >= 60) return RiskLevel.medium;
+    if (score >= 35) return RiskLevel.high;
     return RiskLevel.critical;
   }
 
+  /// Calculates privacy score with deduplication and domain caps.
+  /// Score scale is 0-100 (100 is cleanest, 0 is highest risk).
   static int calculatePrivacyScore(List<String> permissions) {
-    var penalty = 0;
-    for (final permission in permissions) {
-      penalty +=
-          _permissionWeights[permission] ??
-          (dangerousPermissions.contains(permission) ? 6 : 0);
-    }
-    return (100 - penalty).clamp(0, 100).toInt();
+    final dummyApp = AppInfo(
+      packageName: 'preview.package',
+      appName: 'Preview App',
+      permissions: permissions,
+      riskLevel: RiskLevel.safe,
+      dangerousPermissionCount: countDangerousPermissions(permissions),
+      privacyScore: 100,
+      isSystemApp: false,
+      installSource: 'Unknown',
+    );
+    return enrichAppInfo(dummyApp).privacyScore;
   }
 
   static int countDangerousPermissions(List<String> permissions) {
@@ -71,7 +80,53 @@ class PermissionAnalyzer {
     ]);
     final dangerousCount = countDangerousPermissions(baseInfo.permissions);
     final signals = <RiskSignal>[];
-    var penalty = 0;
+
+    // ── 1. Calculate Deduplicated Permission Penalties ──
+    var rawPermPenalty = 0;
+    final hasFineLocation = permissionSet.contains(
+      'android.permission.ACCESS_FINE_LOCATION',
+    );
+    final hasManageStorage = permissionSet.contains(
+      'android.permission.MANAGE_EXTERNAL_STORAGE',
+    );
+    final hasReadStorage = permissionSet.contains(
+      'android.permission.READ_EXTERNAL_STORAGE',
+    );
+
+    for (final permission in permissionSet) {
+      // Deduplicate fine/coarse location: fine already grants precise location
+      if (permission == 'android.permission.ACCESS_COARSE_LOCATION' &&
+          hasFineLocation) {
+        continue;
+      }
+      // Deduplicate storage: MANAGE_EXTERNAL_STORAGE encompasses all other storage permissions
+      if (hasManageStorage &&
+          (permission == 'android.permission.READ_EXTERNAL_STORAGE' ||
+              permission == 'android.permission.WRITE_EXTERNAL_STORAGE' ||
+              permission == 'android.permission.READ_MEDIA_IMAGES' ||
+              permission == 'android.permission.READ_MEDIA_VIDEO' ||
+              permission == 'android.permission.READ_MEDIA_AUDIO')) {
+        continue;
+      }
+      // Deduplicate media if general read storage is already granted
+      if (hasReadStorage &&
+          (permission == 'android.permission.READ_MEDIA_IMAGES' ||
+              permission == 'android.permission.READ_MEDIA_VIDEO' ||
+              permission == 'android.permission.READ_MEDIA_AUDIO')) {
+        continue;
+      }
+
+      final weight =
+          _permissionWeights[permission] ??
+          (dangerousPermissions.contains(permission) ? 5 : 0);
+      rawPermPenalty += weight;
+    }
+
+    // Cap base permission penalty to avoid dropping rich utility apps to 0 solely on declared permissions
+    final permissionPenalty = rawPermPenalty.clamp(0, 50);
+
+    // ── 2. Structural & Behavioral Risk Signals ──
+    var signalPenalty = 0;
 
     void addSignal({
       required String id,
@@ -90,87 +145,82 @@ class PermissionAnalyzer {
           weight: weight,
         ),
       );
-      penalty += weight;
+      signalPenalty += weight;
     }
 
-    for (final permission in permissionSet) {
-      penalty +=
-          _permissionWeights[permission] ??
-          (dangerousPermissions.contains(permission) ? 6 : 0);
-    }
-
-    if (dangerousCount > 0) {
+    // Contextual permission synergy signal (informational, small synergy penalty)
+    if (dangerousCount >= 5) {
       addSignal(
         id: 'dangerous_permissions',
-        title: '$dangerousCount sensitive permissions',
+        title: '$dangerousCount sensitive permissions declared',
         description:
-            'This app requests permissions that can expose personal data, sensors, messages, files, or device identity.',
-        severity: dangerousCount >= 7
-            ? 'critical'
-            : dangerousCount >= 4
-            ? 'high'
-            : 'medium',
-        weight: (dangerousCount * 2).clamp(4, 16),
+            'This application declares a broad set of sensitive permissions spanning multiple subsystem domains.',
+        severity: dangerousCount >= 8 ? 'critical' : 'high',
+        weight: dangerousCount >= 8 ? 6 : 3,
+      );
+    } else if (dangerousCount >= 1) {
+      signals.add(
+        RiskSignal(
+          id: 'dangerous_permissions',
+          title: '$dangerousCount sensitive permissions',
+          description:
+              'Declares permissions classified by Android as runtime sensitive.',
+          severity: dangerousCount >= 3 ? 'medium' : 'low',
+          weight:
+              0, // No extra duplicate penalty; permissions already contributed
+        ),
       );
     }
 
-    if (_hasAny(permissionSet, const [
-      'android.permission.CAMERA',
-      'android.permission.RECORD_AUDIO',
-    ])) {
+    // Sensor synergy (camera & microphone combined access)
+    final hasCamera = permissionSet.contains('android.permission.CAMERA');
+    final hasMic = permissionSet.contains('android.permission.RECORD_AUDIO');
+    if (hasCamera && hasMic) {
       addSignal(
         id: 'sensor_access',
-        title: 'Camera or microphone access',
+        title: 'Concurrent camera and microphone access',
         description:
-            'Sensor permissions deserve extra attention because they can capture the room around you.',
+            'The app can record audio and capture photos/videos simultaneously.',
         severity: 'high',
-        weight: 8,
+        weight: 4,
+      );
+    } else if (hasCamera || hasMic) {
+      signals.add(
+        RiskSignal(
+          id: 'sensor_access',
+          title: hasCamera
+              ? 'Camera access declared'
+              : 'Audio recording declared',
+          description:
+              'Hardware sensor permissions warrant attention when not expected for core app features.',
+          severity: 'medium',
+          weight: 0,
+        ),
       );
     }
 
-    if (_hasAny(permissionSet, const [
+    // Location synergy
+    if (permissionSet.contains(
       'android.permission.ACCESS_BACKGROUND_LOCATION',
-      'android.permission.ACCESS_FINE_LOCATION',
-      'android.permission.ACCESS_COARSE_LOCATION',
-    ])) {
+    )) {
       addSignal(
-        id: 'location_access',
-        title: 'Location intelligence',
+        id: 'background_location',
+        title: 'Background location tracking',
         description:
-            'Location permissions can reveal routines, home/work patterns, and places you visit.',
-        severity:
-            permissionSet.contains(
-              'android.permission.ACCESS_BACKGROUND_LOCATION',
-            )
-            ? 'critical'
-            : 'high',
-        weight:
-            permissionSet.contains(
-              'android.permission.ACCESS_BACKGROUND_LOCATION',
-            )
-            ? 14
-            : 8,
+            'The app can track device movement and location even when not actively in use.',
+        severity: 'critical',
+        weight: 6,
       );
     }
 
+    // High-privilege subsystem capabilities
     if (baseInfo.declaresAccessibilityService) {
       addSignal(
         id: 'accessibility_service',
         title: 'Accessibility service declared',
         description:
-            'Accessibility services can read screen content and automate taps. This is powerful and commonly abused by spyware and banking malware.',
+            'Accessibility services can read screen contents and interact with other apps. This requires high trust.',
         severity: 'critical',
-        weight: 24,
-      );
-    }
-
-    if (baseInfo.requestsOverlayPermission) {
-      addSignal(
-        id: 'overlay_permission',
-        title: 'Display over other apps',
-        description:
-            'Overlay permission can place fake screens on top of real apps and is a common phishing technique.',
-        severity: 'high',
         weight: 18,
       );
     }
@@ -178,44 +228,55 @@ class PermissionAnalyzer {
     if (baseInfo.declaresDeviceAdmin) {
       addSignal(
         id: 'device_admin',
-        title: 'Device admin capability',
+        title: 'Device administration capability',
         description:
-            'Device admin can make an app hard to remove and can enforce device-level controls.',
+            'Device admin privileges can enforce system policies and hinder uninstallation.',
         severity: 'critical',
-        weight: 22,
+        weight: 16,
+      );
+    }
+
+    if (baseInfo.requestsOverlayPermission) {
+      addSignal(
+        id: 'overlay_permission',
+        title: 'Display over other apps (System alert window)',
+        description:
+            'Overlay capability allows drawing floating windows or views over other running applications.',
+        severity: 'high',
+        weight: 8,
       );
     }
 
     if (baseInfo.contactsInternetCombo) {
       addSignal(
         id: 'contacts_internet_combo',
-        title: 'Contacts plus internet',
+        title: 'Contacts access with network capability',
         description:
-            'The app can read contacts and also communicate online, which increases data-exfiltration risk.',
-        severity: 'high',
-        weight: 12,
+            'The app can read contact records and has full network access for potential external transmission.',
+        severity: 'medium',
+        weight: 5,
       );
     }
 
     if (baseInfo.smsCallInternetCombo) {
       addSignal(
         id: 'sms_call_internet_combo',
-        title: 'SMS or calls plus internet',
+        title: 'Call/SMS access with network capability',
         description:
-            'Messaging or call access combined with internet access can expose verification codes, call history, or phone identity.',
-        severity: 'critical',
-        weight: 16,
+            'Combines telephony/messaging permissions with internet connectivity.',
+        severity: 'high',
+        weight: 6,
       );
     }
 
     if (baseInfo.hiddenLauncher) {
       addSignal(
         id: 'hidden_launcher',
-        title: 'Hidden launcher behavior',
+        title: 'No launcher icon declared',
         description:
-            'The app has no visible launcher entry. Legitimate helpers can do this, but stalkerware and droppers often hide this way.',
+            'The application does not provide an entry in the system app launcher.',
         severity: baseInfo.isSystemApp ? 'medium' : 'high',
-        weight: baseInfo.isSystemApp ? 6 : 18,
+        weight: baseInfo.isSystemApp ? 4 : 10,
       );
     }
 
@@ -225,65 +286,44 @@ class PermissionAnalyzer {
         baseInfo.keepsDeviceAwake) {
       addSignal(
         id: 'background_persistence',
-        title: 'Persistent background behavior',
+        title: 'Persistent background execution',
         description:
-            'The app can keep work running after reboot, stay awake, or ask Android to reduce battery limits.',
+            'Declares capabilities to run at boot, keep CPU awake, or request battery optimization exclusions.',
         severity: 'medium',
-        weight: 8,
+        weight: 4,
       );
     }
 
     if (baseInfo.fakeSystemRisk) {
       addSignal(
         id: 'fake_system_app',
-        title: 'Possible fake system app',
+        title: 'Non-system app mimicking system package',
         description:
-            'The app name resembles a system/security component, but it is not installed as a trusted system app.',
+            'The package name or label resembles core Android components, but is installed as a third-party app.',
         severity: 'critical',
-        weight: 24,
+        weight: 18,
       );
     }
 
     if (baseInfo.usesKnownPacker) {
       addSignal(
         id: 'known_packer',
-        title: 'Packed or shielded APK',
+        title: 'Protected or packed APK binary',
         description:
-            'The APK contains signs of commercial packing/protection. This can be legitimate, but it also makes inspection harder.',
-        severity: 'high',
-        weight: 12,
-      );
-    }
-
-    for (final finding in baseInfo.staticFindings) {
-      addSignal(
-        id: 'static_${finding.id}',
-        title: finding.title,
-        description: finding.description,
-        severity: finding.severity,
-        weight: finding.weight,
-      );
-    }
-
-    if (baseInfo.nativeLibraryCount >= 6) {
-      addSignal(
-        id: 'native_code_surface',
-        title: 'Large native code surface',
-        description:
-            'The APK includes several native libraries. Native code is normal for many apps, but it reduces what a manifest-only scan can explain.',
+            'The APK exhibits signatures of commercial bytecode packing or obfuscation.',
         severity: 'medium',
-        weight: 5,
+        weight: 6,
       );
     }
 
     if (baseInfo.isDebuggable && !baseInfo.isSystemApp) {
       addSignal(
         id: 'debuggable_release',
-        title: 'Debuggable build',
+        title: 'Debuggable build flag enabled',
         description:
-            'The app is marked debuggable, which is unusual for production apps and can increase tampering risk.',
+            'The Android manifest has android:debuggable="true", which is unusual for production distribution.',
         severity: 'medium',
-        weight: 8,
+        weight: 6,
       );
     }
 
@@ -292,34 +332,25 @@ class PermissionAnalyzer {
         dangerousCount > 0) {
       addSignal(
         id: 'unknown_source_sensitive',
-        title: 'Unknown source with sensitive access',
+        title: 'Sideloaded package with sensitive permissions',
         description:
-            'Sideloaded apps with sensitive permissions need stronger scrutiny because store review and update provenance are unclear.',
-        severity: 'high',
-        weight: 12,
+            'Installed from an unrecognized source or direct APK file rather than an official app store.',
+        severity: 'medium',
+        weight: 6,
       );
     }
 
-    for (final tracker in trackers) {
-      addSignal(
-        id: 'tracker_${tracker.id}',
-        title: tracker.name,
-        description: tracker.purpose,
-        severity: tracker.riskWeight >= 8 ? 'high' : 'medium',
-        weight: tracker.riskWeight,
-      );
-    }
-
+    // Heuristic abuse patterns
     if (baseInfo.declaresAccessibilityService &&
         baseInfo.requestsOverlayPermission &&
         (baseInfo.hasSmsAccess || baseInfo.hasCallAccess)) {
       addSignal(
         id: 'banking_trojan_pattern',
-        title: 'Banking trojan pattern',
+        title: 'Heuristic overlay and accessibility pattern',
         description:
-            'Accessibility, overlays, and SMS/call access together match a common banking trojan abuse pattern.',
+            'Accessibility, overlay, and SMS/call privileges together form a high-risk combination often targeted in security audits.',
         severity: 'critical',
-        weight: 28,
+        weight: 14,
       );
     }
 
@@ -331,11 +362,11 @@ class PermissionAnalyzer {
             ))) {
       addSignal(
         id: 'stalkerware_pattern',
-        title: 'Stalkerware pattern',
+        title: 'Heuristic background surveillance pattern',
         description:
-            'Hidden launcher behavior combined with accessibility or location/message access is a stalkerware warning sign.',
+            'Hidden launcher presence with accessibility or location/SMS access matches common background surveillance indicators.',
         severity: 'critical',
-        weight: 30,
+        weight: 14,
       );
     }
 
@@ -344,17 +375,56 @@ class PermissionAnalyzer {
         baseInfo.hasInternetAccess) {
       addSignal(
         id: 'silent_sms_pattern',
-        title: 'Silent SMS relay pattern',
+        title: 'Boot persistence with SMS and network access',
         description:
-            'Boot persistence with SMS and internet access can be abused to monitor or forward messages quietly.',
-        severity: 'critical',
-        weight: 24,
+            'Can process messages upon boot with external communication channels.',
+        severity: 'high',
+        weight: 8,
       );
     }
 
-    final score = (100 - penalty).clamp(0, 100).toInt();
+    // ── 3. Static Findings from APK Inspection ──
+    var staticFindingsPenalty = 0;
+    for (final finding in baseInfo.staticFindings) {
+      addSignal(
+        id: 'static_${finding.id}',
+        title: finding.title,
+        description: finding.description,
+        severity: finding.severity,
+        weight: finding.weight,
+      );
+      staticFindingsPenalty += finding.weight;
+    }
+    staticFindingsPenalty = staticFindingsPenalty.clamp(0, 15);
+
+    // ── 4. Trackers ──
+    var trackersPenalty = 0;
+    for (final tracker in trackers) {
+      final trackerWeight = (tracker.riskWeight).clamp(1, 5);
+      addSignal(
+        id: 'tracker_${tracker.id}',
+        title: tracker.name,
+        description: tracker.purpose,
+        severity: tracker.riskWeight >= 8 ? 'high' : 'medium',
+        weight: trackerWeight,
+      );
+      trackersPenalty += trackerWeight;
+    }
+    trackersPenalty = trackersPenalty.clamp(0, 12);
+
+    // ── 5. Total Calibrated Score Calculation ──
+    final totalPenalty =
+        (permissionPenalty +
+                signalPenalty.clamp(0, 45) +
+                staticFindingsPenalty +
+                trackersPenalty)
+            .clamp(0, 100);
+
+    final score = (100 - totalPenalty).clamp(0, 100).toInt();
     final riskLevel = riskLevelForScore(score);
-    final malwareIndicators = signals
+
+    // Heuristic signals that warrant manual scrutiny
+    final heuristicSecuritySignals = signals
         .where(
           (signal) =>
               signal.severity == 'critical' ||
@@ -367,7 +437,7 @@ class PermissionAnalyzer {
     return baseInfo.copyWith(
       trackers: trackers,
       riskSignals: signals..sort((a, b) => b.weight.compareTo(a.weight)),
-      malwareIndicators: malwareIndicators,
+      malwareIndicators: heuristicSecuritySignals,
       dangerousPermissionCount: dangerousCount,
       privacyScore: score,
       riskLevel: riskLevel,
@@ -449,11 +519,11 @@ class PermissionAnalyzer {
       trackers.add(
         const TrackerInfo(
           id: 'unknown_ad_id',
-          name: 'Unknown advertising identifier use',
+          name: 'Advertising identifier requested',
           category: 'Advertising',
           purpose:
-              'The app requests the Google advertising identifier, but no known ad SDK was identified in the APK scan.',
-          riskWeight: 7,
+              'The app requests the Google advertising ID without a recognized major ad network SDK.',
+          riskWeight: 4,
           evidence:
               'Permission com.google.android.gms.permission.AD_ID is requested.',
           confidence: 60,
@@ -492,7 +562,7 @@ class PermissionAnalyzer {
   static bool _isUnknownAdvertisingIdentifierTracker(TrackerInfo tracker) {
     return tracker.id == 'unknown_ad_id' ||
         tracker.id == 'unknown_advertising_id' ||
-        tracker.name.toLowerCase().contains('unknown advertising identifier');
+        tracker.name.toLowerCase().contains('advertising identifier');
   }
 
   static bool _isKnownAdvertisingIdentifierConsumer(TrackerInfo tracker) {

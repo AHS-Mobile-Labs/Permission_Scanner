@@ -360,9 +360,11 @@ class AppInfo {
           (item) => StaticScanFinding.fromJson(Map<String, dynamic>.from(item)),
         )
         .toList();
+    final pkg = json['packageName'] as String? ?? 'unknown.package';
+    final name = json['appName'] as String? ?? pkg;
     return AppInfo(
-      packageName: json['packageName'] as String,
-      appName: json['appName'] as String,
+      packageName: pkg,
+      appName: name,
       iconPath: json['iconPath'] as String?,
       permissions: permissions,
       riskLevel: _riskLevelFromString(json['riskLevel'] as String?),

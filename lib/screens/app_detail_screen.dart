@@ -215,17 +215,28 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: _riskBgColor(widget.app.riskLevel),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Column(
                             children: [
-                              RiskBadge(riskLevel: widget.app.riskLevel),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: RiskBadge(
+                                  riskLevel: widget.app.riskLevel,
+                                  compact: true,
+                                ),
+                              ),
                               const SizedBox(height: 4),
                               const Text(
                                 'Risk Level',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: AppColors.textLight,
@@ -904,13 +915,13 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
             const Row(
               children: [
                 Icon(
-                  Icons.gpp_bad_rounded,
+                  Icons.shield_outlined,
                   color: AppColors.riskCritical,
                   size: 20,
                 ),
                 SizedBox(width: 8),
                 Text(
-                  'Malware & Spyware Warnings',
+                  'Heuristic Security Signals',
                   style: TextStyle(
                     color: AppColors.riskCritical,
                     fontSize: 15,
@@ -918,6 +929,15 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Static analysis detected patterns that warrant review. These are heuristic indicators, not definitive proof of malicious behavior.',
+              style: TextStyle(
+                color: AppColors.textLight,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 10),
             ...widget.app.malwareIndicators.map(
@@ -1101,25 +1121,31 @@ class _AppDetailScreenState extends ConsumerState<AppDetailScreen> {
 
   Widget _infoChip(String value, String label, Color color, Color bg) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: color,
-              letterSpacing: 0,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: color,
+                letterSpacing: 0,
+              ),
             ),
           ),
           const SizedBox(height: 2),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 11,
               color: AppColors.textLight,

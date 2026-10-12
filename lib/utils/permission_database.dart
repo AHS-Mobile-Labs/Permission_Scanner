@@ -281,6 +281,55 @@ final Map<String, PermissionInfo> permissionDatabase = {
     group: 'Tracking',
     isDangerous: false,
   ),
+  'android.permission.NEARBY_WIFI_DEVICES': PermissionInfo(
+    name: 'android.permission.NEARBY_WIFI_DEVICES',
+    displayName: 'Nearby Wi-Fi Devices',
+    description: 'Discover and connect to nearby Wi-Fi devices',
+    group: 'Nearby Devices',
+    isDangerous: true,
+  ),
+  'android.permission.BODY_SENSORS_BACKGROUND': PermissionInfo(
+    name: 'android.permission.BODY_SENSORS_BACKGROUND',
+    displayName: 'Background Body Sensors',
+    description: 'Access health sensor data while in the background',
+    group: 'Sensors',
+    isDangerous: true,
+  ),
+  'android.permission.READ_BASIC_PHONE_STATE': PermissionInfo(
+    name: 'android.permission.READ_BASIC_PHONE_STATE',
+    displayName: 'Read Basic Phone State',
+    description: 'Access basic telephony information without identifiers',
+    group: 'Phone',
+    isDangerous: false,
+  ),
+  'android.permission.DETECT_SCREEN_CAPTURE': PermissionInfo(
+    name: 'android.permission.DETECT_SCREEN_CAPTURE',
+    displayName: 'Detect Screen Capture',
+    description: 'Detect when the screen is being captured or recorded',
+    group: 'Display',
+    isDangerous: false,
+  ),
+  'android.permission.USE_BIOMETRIC': PermissionInfo(
+    name: 'android.permission.USE_BIOMETRIC',
+    displayName: 'Biometric Authentication',
+    description: 'Authenticate using device biometric hardware',
+    group: 'Security',
+    isDangerous: false,
+  ),
+  'android.permission.USE_FINGERPRINT': PermissionInfo(
+    name: 'android.permission.USE_FINGERPRINT',
+    displayName: 'Fingerprint Authentication',
+    description: 'Authenticate using device fingerprint sensor',
+    group: 'Security',
+    isDangerous: false,
+  ),
+  'android.permission.MANAGE_EXTERNAL_STORAGE': PermissionInfo(
+    name: 'android.permission.MANAGE_EXTERNAL_STORAGE',
+    displayName: 'All Files Access',
+    description: 'Broad access to all shared storage files',
+    group: 'Storage',
+    isDangerous: true,
+  ),
 };
 
 const List<String> dangerousPermissions = [
@@ -299,6 +348,7 @@ const List<String> dangerousPermissions = [
   'android.permission.WRITE_CALL_LOG',
   'android.permission.READ_EXTERNAL_STORAGE',
   'android.permission.WRITE_EXTERNAL_STORAGE',
+  'android.permission.MANAGE_EXTERNAL_STORAGE',
   'android.permission.READ_MEDIA_IMAGES',
   'android.permission.READ_MEDIA_VIDEO',
   'android.permission.READ_MEDIA_AUDIO',
@@ -309,7 +359,9 @@ const List<String> dangerousPermissions = [
   'android.permission.ANSWER_PHONE_CALLS',
   'android.permission.BLUETOOTH_SCAN',
   'android.permission.BLUETOOTH_CONNECT',
+  'android.permission.NEARBY_WIFI_DEVICES',
   'android.permission.BODY_SENSORS',
+  'android.permission.BODY_SENSORS_BACKGROUND',
   'android.permission.ACTIVITY_RECOGNITION',
   'android.permission.READ_CALENDAR',
   'android.permission.WRITE_CALENDAR',
@@ -329,3 +381,58 @@ const List<String> developerOnlyPermissions = [
   'android.permission.SYSTEM_ALERT_WINDOW',
   'android.permission.USE_CREDENTIALS',
 ];
+
+/// Returns formatted human-readable permission details for any permission,
+/// providing fallbacks for custom or undocumented permissions.
+PermissionInfo getPermissionDetails(String permissionName) {
+  final found = permissionDatabase[permissionName];
+  if (found != null) return found;
+
+  final isDangerous = dangerousPermissions.contains(permissionName);
+  final displayName = formatPermissionName(permissionName);
+
+  return PermissionInfo(
+    name: permissionName,
+    displayName: displayName,
+    description: isDangerous
+        ? 'Accesses sensitive device capabilities or data.'
+        : 'Standard application permission.',
+    group: _inferPermissionGroup(permissionName),
+    isDangerous: isDangerous,
+  );
+}
+
+/// Converts raw permission name like 'android.permission.READ_CONTACTS'
+/// into 'Read Contacts'.
+String formatPermissionName(String permissionName) {
+  final rawName = permissionName.split('.').last;
+  if (rawName.isEmpty) return permissionName;
+
+  final words = rawName.split('_');
+  return words
+      .map((word) {
+        if (word.isEmpty) return '';
+        return word[0].toUpperCase() +
+            (word.length > 1 ? word.substring(1).toLowerCase() : '');
+      })
+      .join(' ');
+}
+
+String _inferPermissionGroup(String permission) {
+  final lower = permission.toLowerCase();
+  if (lower.contains('camera')) return 'Camera';
+  if (lower.contains('audio') || lower.contains('record')) return 'Microphone';
+  if (lower.contains('location')) return 'Location';
+  if (lower.contains('contact')) return 'Contacts';
+  if (lower.contains('sms') || lower.contains('mms')) return 'SMS';
+  if (lower.contains('call') || lower.contains('phone')) return 'Phone';
+  if (lower.contains('storage') || lower.contains('media')) return 'Storage';
+  if (lower.contains('bluetooth') || lower.contains('wifi')) {
+    return 'Nearby Devices';
+  }
+  if (lower.contains('sensor')) return 'Sensors';
+  if (lower.contains('calendar')) return 'Calendar';
+  if (lower.contains('notification')) return 'Notifications';
+  if (lower.contains('network') || lower.contains('internet')) return 'Network';
+  return 'System';
+}

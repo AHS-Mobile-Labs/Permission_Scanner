@@ -20,64 +20,125 @@ class _AppCompareScreenState extends ConsumerState<AppCompareScreen> {
   Widget build(BuildContext context) {
     final appsAsync = ref.watch(installedAppsProvider);
 
-    return appsAsync.when(
-      data: (apps) {
-        final sorted = List<AppInfo>.from(apps)
-          ..sort((a, b) => a.appName.compareTo(b.appName));
-        if (sorted.isEmpty) {
-          return const Center(child: Text('No apps available'));
-        }
-        _leftPackage ??= sorted.first.packageName;
-        _rightPackage ??= sorted.length > 1
-            ? sorted[1].packageName
-            : sorted.first.packageName;
-        final left = sorted.firstWhere(
-          (app) => app.packageName == _leftPackage,
-          orElse: () => sorted.first,
-        );
-        final right = sorted.firstWhere(
-          (app) => app.packageName == _rightPackage,
-          orElse: () => sorted.first,
-        );
+    return Scaffold(
+      appBar: AppBar(title: const Text('Compare Apps')),
+      body: appsAsync.when(
+        skipLoadingOnReload: true,
+        data: (apps) {
+          final sorted = List<AppInfo>.from(apps)
+            ..sort((a, b) => a.appName.compareTo(b.appName));
+          if (sorted.isEmpty) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.compare_arrows_rounded,
+                      size: 48,
+                      color: AppColors.textLight,
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      'No apps available to compare',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      'Scan apps from the dashboard first to compare permissions side-by-side.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textLight,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+          _leftPackage ??= sorted.first.packageName;
+          _rightPackage ??= sorted.length > 1
+              ? sorted[1].packageName
+              : sorted.first.packageName;
+          final left = sorted.firstWhere(
+            (app) => app.packageName == _leftPackage,
+            orElse: () => sorted.first,
+          );
+          final right = sorted.firstWhere(
+            (app) => app.packageName == _rightPackage,
+            orElse: () => sorted.first,
+          );
 
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _appPicker(
-                    sorted,
-                    _leftPackage,
-                    (value) => setState(() => _leftPackage = value),
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _appPicker(
+                      sorted,
+                      _leftPackage,
+                      (value) => setState(() => _leftPackage = value),
+                    ),
                   ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _appPicker(
+                      sorted,
+                      _rightPackage,
+                      (value) => setState(() => _rightPackage = value),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _summaryCard(left)),
+                  const SizedBox(width: 10),
+                  Expanded(child: _summaryCard(right)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _comparisonTable(left, right),
+            ],
+          );
+        },
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+        error: (error, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.error_outline_rounded,
+                  size: 48,
+                  color: AppColors.riskDangerous,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _appPicker(
-                    sorted,
-                    _rightPackage,
-                    (value) => setState(() => _rightPackage = value),
+                const SizedBox(height: 12),
+                Text(
+                  'Unable to load apps: $error',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textDark,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _summaryCard(left)),
-                const SizedBox(width: 10),
-                Expanded(child: _summaryCard(right)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _comparisonTable(left, right),
-          ],
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => Center(child: Text('Unable to load apps: $error')),
+          ),
+        ),
+      ),
     );
   }
 
@@ -141,7 +202,10 @@ class _AppCompareScreenState extends ConsumerState<AppCompareScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          RiskBadge(riskLevel: app.riskLevel),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: RiskBadge(riskLevel: app.riskLevel),
+          ),
           const SizedBox(height: 14),
           Text(
             '${app.privacyScore}/100',

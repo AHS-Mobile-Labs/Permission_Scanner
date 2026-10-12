@@ -12,11 +12,21 @@
   <img alt="Flutter" src="https://img.shields.io/badge/Flutter-stable-02569B?logo=flutter&logoColor=white" />
   <img alt="Dart" src="https://img.shields.io/badge/Dart-%5E3.11.1-0175C2?logo=dart&logoColor=white" />
   <img alt="Platform" src="https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white" />
-  <img alt="Version" src="https://img.shields.io/badge/version-1.0.2%2B3-brightgreen" />
-  <img alt="License" src="https://img.shields.io/github/license/AHS-Mobile-Labs/Permission_Scanner" />
+  <img alt="Version" src="https://img.shields.io/badge/version-1.0.4%2B5-brightgreen" />
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-green.svg" /></a>
+</p>
+
+<p align="center">
+  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=18&duration=3000&pause=1000&color=0E7B72&center=true&vCenter=true&width=550&height=35&lines=Android+Permission+%26+Privacy+Scanner;Real-Time+App+Risk+Classification;Pre-Install+APK+Vulnerability+Audit;On-Device+Behavioral+Intelligence;Zero+Data+Collection+%E2%80%A2+100%25+Offline" alt="Permission Scanner Dynamic Features" />
 </p>
 
 ---
+
+## App Preview
+
+<p align="center">
+  <img src="asset/github-img/permission_scanner_demo.gif" width="360" alt="Permission Scanner Animated Walkthrough" />
+</p>
 
 ## Overview
 
@@ -40,17 +50,14 @@ The app is designed to be transparent: scanning happens through native Android A
 ## Screenshots
 
 <p align="center">
-  <img src="asset/github-img/%232/Screenshot_20260531_203233.jpg" width="180" alt="Security Dashboard" />
-  <img src="asset/github-img/%232/Screenshot_20260531_203248.jpg" width="180" alt="App List" />
-  <img src="asset/github-img/%232/Screenshot_20260531_203314.jpg" width="180" alt="App Details" />
-  <img src="asset/github-img/%232/Screenshot_20260531_203354.jpg" width="180" alt="Permission Info" />
-  <img src="asset/github-img/%232/Screenshot_20260531_203403.jpg" width="180" alt="Privacy Timeline" />
-  <img src="asset/github-img/%232/Screenshot_20260531_203428.jpg" width="180" alt="Privacy Tools" />
-  <img src="asset/github-img/%232/Screenshot_20260531_203433.jpg" width="180" alt="APK Scanner" />
-  <img src="asset/github-img/%232/Screenshot_20260531_203436.jpg" width="180" alt="App Compare" />
-  <img src="asset/github-img/%232/Screenshot_20260531_203438.jpg" width="180" alt="About" />
-  <img src="asset/github-img/%232/Screenshot_20260531_203443.jpg" width="180" alt="Privacy Policy" />
-  <img src="asset/github-img/%232/Screenshot_20260531_203446.jpg" width="180" alt="Settings" />
+  <img src="asset/github-img/%233/Screenshot_20261012_224847.jpg" width="180" alt="Security Dashboard" />
+  <img src="asset/github-img/%233/Screenshot_20261012_224858.jpg" width="180" alt="Installed Apps" />
+  <img src="asset/github-img/%233/Screenshot_20261012_224904.jpg" width="180" alt="Privacy Tools" />
+  <img src="asset/github-img/%233/Screenshot_20261012_225022.jpg" width="180" alt="Compare Apps" />
+  <img src="asset/github-img/%233/Screenshot_20261012_225031.jpg" width="180" alt="App Details" />
+  <img src="asset/github-img/%233/Screenshot_20261012_225043.jpg" width="180" alt="Permission Library" />
+  <img src="asset/github-img/%233/Screenshot_20261012_225048.jpg" width="180" alt="Privacy Timeline" />
+  <img src="asset/github-img/%233/Screenshot_20261012_225140.jpg" width="180" alt="App Intelligence" />
 </p>
 
 ## Tech Stack
@@ -61,9 +68,10 @@ The app is designed to be transparent: scanning happens through native Android A
 | Language | Dart |
 | State management | `flutter_riverpod` |
 | Local cache | `hive`, `hive_flutter` |
-| Charts | `fl_chart` |
 | Notifications | `flutter_local_notifications` |
 | Permissions | `permission_handler` |
+| Deep linking / external links | `url_launcher` |
+| Storage paths | `path_provider` |
 | Native integration | Android `MethodChannel('permission_scanner')` |
 
 ## Project Structure
@@ -160,7 +168,7 @@ For the full policy text, see `privacypolicy.txt` or the in-app Privacy Policy s
 
 ## License
 
-This project is licensed under the terms in [LICENSE](LICENSE).
+This project is licensed under the terms of the [MIT License](LICENSE).
 
 ## Author
 

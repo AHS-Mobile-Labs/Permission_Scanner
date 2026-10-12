@@ -130,6 +130,7 @@ class CacheService {
 
   Future<void> saveApps(List<AppInfo> apps) async {
     try {
+      if (apps.isEmpty) return;
       final box = await _ensureAppsBoxOpen();
       if (box == null) return;
       await box.clear();

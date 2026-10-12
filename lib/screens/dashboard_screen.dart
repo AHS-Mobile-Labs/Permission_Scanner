@@ -2,7 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_scanner/main.dart';
 import 'package:permission_scanner/models/app_info.dart';
+import 'package:permission_scanner/screens/apk_scanner_screen.dart';
+import 'package:permission_scanner/screens/app_compare_screen.dart';
 import 'package:permission_scanner/screens/app_detail_screen.dart';
 import 'package:permission_scanner/services/app_providers.dart';
 import 'package:permission_scanner/utils/app_colors.dart';
@@ -17,74 +20,77 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  final _searchController = TextEditingController();
   DashboardOverview? _cachedOverview;
-  List<AppInfo>? _cachedApps;
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
 
   Future<void> _handleRefresh() async {
     await ref.read(installedAppsProvider.notifier).forceRefresh();
   }
 
-  Future<void> _handleClearCache() async {
-    final cacheService = ref.read(cacheServiceProvider);
-    await cacheService.init();
-    await cacheService.clearCache();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cache cleared. Rescanning...')),
-      );
+  void _navigateToAppsWithFilter({RiskLevel? risk, AppType? type}) {
+    if (type != null) {
+      ref.read(appTypeProvider.notifier).state = type;
     }
-    await _handleRefresh();
-  }
-
-  void _showHighRiskApps() {
-    ref.read(dashboardRiskFilterProvider.notifier).state = RiskLevel.high;
+    if (risk != null) {
+      ref.read(sortOptionProvider.notifier).state = SortOption.risk;
+    }
+    ref.read(mainNavIndexProvider.notifier).state = 1;
   }
 
   @override
   Widget build(BuildContext context) {
     final overviewAsync = ref.watch(dashboardOverviewProvider);
-    final filteredAsync = ref.watch(dashboardFilteredAppsProvider);
-    final currentTab = ref.watch(dashboardTabProvider);
-    final currentSort = ref.watch(dashboardSortOptionProvider);
-    final riskFilter = ref.watch(dashboardRiskFilterProvider);
 
     if (overviewAsync.hasValue) _cachedOverview = overviewAsync.value;
-    if (filteredAsync.hasValue) _cachedApps = filteredAsync.value;
-
     final overview = overviewAsync.valueOrNull ?? _cachedOverview;
-    final filteredApps = filteredAsync.valueOrNull ?? _cachedApps;
 
     if (overview == null) {
+      if (overviewAsync.hasError) {
+        return Scaffold(
+          appBar: AppBar(title: const Text('Security Dashboard')),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    size: 48,
+                    color: AppColors.riskDangerous,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Unable to scan applications',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${overviewAsync.error}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textLight,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: _handleRefresh,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Retry Scan'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
       return _buildSkeleton();
     }
 
-    return _buildDashboard(
-      overview,
-      filteredApps ?? [],
-      currentTab,
-      currentSort,
-      riskFilter,
-      isRefreshing: overviewAsync.isLoading,
-    );
-  }
-
-  // ── Main Dashboard ──────────────────────────────────────────────
-
-  Widget _buildDashboard(
-    DashboardOverview overview,
-    List<AppInfo> filteredApps,
-    AppType currentTab,
-    DashboardSortOption currentSort,
-    RiskLevel? riskFilter, {
-    bool isRefreshing = false,
-  }) {
     return RefreshIndicator(
       onRefresh: _handleRefresh,
       color: AppColors.primary,
@@ -95,7 +101,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             pinned: true,
             title: const Text('Security Dashboard'),
             actions: [
-              if (isRefreshing)
+              if (overviewAsync.isLoading)
                 const Padding(
                   padding: EdgeInsets.all(16),
                   child: SizedBox(
@@ -118,66 +124,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           SliverToBoxAdapter(child: _buildSecuritySummary(overview)),
           SliverToBoxAdapter(child: _buildQuickActions()),
           SliverToBoxAdapter(child: _buildLiveMonitoring(overview)),
+          SliverToBoxAdapter(child: _buildTopRiskApps(overview)),
+          SliverToBoxAdapter(child: _buildPermissionBreakdown(overview)),
           SliverToBoxAdapter(child: _buildTrackerBreakdown(overview)),
           SliverToBoxAdapter(child: _buildRecentPermissionChanges(overview)),
-          SliverToBoxAdapter(child: _buildPermissionBreakdown(overview)),
-          SliverToBoxAdapter(child: _buildSearchBar()),
-          SliverToBoxAdapter(child: _buildAppTypeTabs(overview, currentTab)),
-          SliverToBoxAdapter(
-            child: _buildSortFilterBar(currentSort, riskFilter),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Text(
-                '${filteredApps.length} apps',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textLight,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-          if (filteredApps.isEmpty)
-            SliverFillRemaining(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.search_off_rounded,
-                      size: 48,
-                      color: AppColors.textLight,
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'No apps found',
-                      style: TextStyle(
-                        color: AppColors.textLight,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) =>
-                    RepaintBoundary(child: _buildAppTile(filteredApps[index])),
-                childCount: filteredApps.length,
-              ),
-            ),
-          const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
+          const SliverPadding(padding: EdgeInsets.only(bottom: 96)),
         ],
       ),
     );
   }
 
-  // ── Security Summary ────────────────────────────────────────────
+  // ── Security Summary Banner ─────────────────────────────────────
 
   Widget _buildSecuritySummary(DashboardOverview overview) {
     final score = overview.securityScore;
@@ -186,17 +143,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (score >= 80) {
       scoreColor = AppColors.riskSafe;
       scoreLabel = 'Good';
-    } else if (score >= 50) {
+    } else if (score >= 60) {
       scoreColor = AppColors.riskMedium;
-      scoreLabel = 'Fair';
-    } else {
+      scoreLabel = 'Moderate';
+    } else if (score >= 35) {
       scoreColor = AppColors.riskDangerous;
-      scoreLabel = 'At Risk';
+      scoreLabel = 'High Exposure';
+    } else {
+      scoreColor = AppColors.riskCritical;
+      scoreLabel = 'Critical';
     }
 
     return Container(
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: AppColors.dashboardGradient,
@@ -216,27 +176,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         children: [
           Row(
             children: [
-              // Animated score ring
               TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0, end: score / 100),
-                duration: const Duration(milliseconds: 1200),
+                duration: const Duration(milliseconds: 1000),
                 curve: Curves.easeOutCubic,
                 builder: (context, value, _) {
                   return SizedBox(
-                    width: 80,
-                    height: 80,
+                    width: 82,
+                    height: 82,
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
                         SizedBox(
-                          width: 80,
-                          height: 80,
+                          width: 82,
+                          height: 82,
                           child: CircularProgressIndicator(
                             value: value,
-                            strokeWidth: 5,
+                            strokeWidth: 6,
                             strokeCap: StrokeCap.round,
                             backgroundColor: Colors.white.withValues(
-                              alpha: 0.1,
+                              alpha: 0.12,
                             ),
                             valueColor: AlwaysStoppedAnimation(scoreColor),
                           ),
@@ -251,10 +210,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 fontSize: 24,
                                 fontWeight: FontWeight.w800,
                                 height: 1,
-                                letterSpacing: 0,
                               ),
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 3),
                             Text(
                               scoreLabel,
                               style: TextStyle(
@@ -270,33 +228,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   );
                 },
               ),
-              const SizedBox(width: 20),
+              const SizedBox(width: 18),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Security Score',
+                    const Text(
+                      'Overall Privacy Score',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.95),
-                        fontSize: 17,
+                        color: Colors.white,
+                        fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 5),
                     Text(
-                      '${overview.totalApps} apps scanned',
+                      '${overview.totalApps} applications audited',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
+                        color: Colors.white.withValues(alpha: 0.7),
                         fontSize: 13,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${overview.totalDangerousPermissions} dangerous permissions',
+                      '${overview.totalDangerousPermissions} sensitive permissions declared',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 13,
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -304,36 +263,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 22),
-          // Segmented risk distribution bar
+          const SizedBox(height: 18),
           ClipRRect(
-            borderRadius: BorderRadius.circular(5),
+            borderRadius: BorderRadius.circular(4),
             child: SizedBox(
-              height: 8,
+              height: 7,
               child: Row(
                 children: [
                   if (overview.safeApps > 0)
                     Expanded(
                       flex: overview.safeApps,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.riskSafe,
-                          borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(5),
-                            bottomLeft: const Radius.circular(5),
-                            topRight:
-                                overview.mediumApps == 0 &&
-                                    overview.dangerousApps == 0
-                                ? const Radius.circular(5)
-                                : Radius.zero,
-                            bottomRight:
-                                overview.mediumApps == 0 &&
-                                    overview.dangerousApps == 0
-                                ? const Radius.circular(5)
-                                : Radius.zero,
-                          ),
-                        ),
-                      ),
+                      child: Container(color: AppColors.riskSafe),
                     ),
                   if (overview.safeApps > 0 &&
                       (overview.mediumApps > 0 || overview.dangerousApps > 0))
@@ -348,25 +288,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   if (overview.dangerousApps > 0)
                     Expanded(
                       flex: overview.dangerousApps,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.riskDangerous,
-                          borderRadius: BorderRadius.only(
-                            topRight: const Radius.circular(5),
-                            bottomRight: const Radius.circular(5),
-                            topLeft:
-                                overview.safeApps == 0 &&
-                                    overview.mediumApps == 0
-                                ? const Radius.circular(5)
-                                : Radius.zero,
-                            bottomLeft:
-                                overview.safeApps == 0 &&
-                                    overview.mediumApps == 0
-                                ? const Radius.circular(5)
-                                : Radius.zero,
-                          ),
-                        ),
-                      ),
+                      child: Container(color: AppColors.riskDangerous),
                     ),
                   if (overview.totalApps == 0)
                     Expanded(
@@ -382,17 +304,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _legendItem('Safe', overview.safeApps, AppColors.riskSafe),
-              _legendItem('Medium', overview.mediumApps, AppColors.riskMedium),
               _legendItem(
-                'High Risk',
+                'Safe',
+                overview.safeApps,
+                AppColors.riskSafe,
+                () => _navigateToAppsWithFilter(risk: RiskLevel.safe),
+              ),
+              _legendItem(
+                'Medium',
+                overview.mediumApps,
+                AppColors.riskMedium,
+                () => _navigateToAppsWithFilter(risk: RiskLevel.medium),
+              ),
+              _legendItem(
+                'High',
                 overview.highRiskApps,
                 AppColors.riskDangerous,
+                () => _navigateToAppsWithFilter(risk: RiskLevel.high),
               ),
               _legendItem(
                 'Critical',
                 overview.criticalApps,
                 AppColors.riskCritical,
+                () => _navigateToAppsWithFilter(risk: RiskLevel.critical),
               ),
             ],
           ),
@@ -401,25 +335,32 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _legendItem(String label, int count, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  Widget _legendItem(String label, int count, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              '$count $label',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.85),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 6),
-        Text(
-          '$count $label',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.8),
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -441,19 +382,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: _actionCard(
-              Icons.delete_sweep_rounded,
-              'Clear Cache',
+              Icons.upload_file_rounded,
+              'Scan APK',
               AppColors.secondary,
-              _handleClearCache,
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ApkScannerScreen()),
+              ),
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: _actionCard(
-              Icons.warning_amber_rounded,
-              'High Risk',
-              AppColors.riskDangerous,
-              _showHighRiskApps,
+              Icons.compare_arrows_rounded,
+              'Compare',
+              const Color(0xFF6366F1),
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AppCompareScreen()),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _actionCard(
+              Icons.tune_rounded,
+              'Tools',
+              AppColors.primary,
+              () => ref.read(mainNavIndexProvider.notifier).state = 2,
             ),
           ),
         ],
@@ -473,9 +429,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppColors.divider),
@@ -483,20 +438,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           child: Column(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: color, size: 20),
+                child: Icon(icon, color: color, size: 18),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
                   color: AppColors.textDark,
                 ),
               ),
@@ -507,16 +462,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
+  // ── Live Monitoring Tiles ───────────────────────────────────────
+
   Widget _buildLiveMonitoring(DashboardOverview overview) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
       child: Row(
         children: [
           Expanded(
             child: _metricTile(
-              Icons.radar_rounded,
+              Icons.track_changes_rounded,
               '${overview.totalTrackers}',
-              'Trackers',
+              'Trackers Found',
               AppColors.secondary,
             ),
           ),
@@ -525,16 +482,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             child: _metricTile(
               Icons.autorenew_rounded,
               '${overview.persistentApps}',
-              'Background',
+              'Background Apps',
               AppColors.riskMedium,
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: _metricTile(
-              Icons.privacy_tip_rounded,
+              Icons.security_update_warning_rounded,
               '${overview.recentChanges.length}',
-              'Changes',
+              'Recent Changes',
               AppColors.primary,
             ),
           ),
@@ -545,7 +502,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _metricTile(IconData icon, String value, String label, Color color) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(14),
@@ -554,13 +511,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 10),
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 8),
           Text(
             value,
             style: TextStyle(
               color: color,
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -571,7 +528,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: AppColors.textLight,
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -580,11 +537,213 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
+  // ── Top Apps Needing Review ─────────────────────────────────────
+
+  Widget _buildTopRiskApps(DashboardOverview overview) {
+    final topApps = overview.topRiskApps.take(5).toList();
+    if (topApps.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Apps Needing Review',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textDark,
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  ref.read(sortOptionProvider.notifier).state = SortOption.risk;
+                  ref.read(mainNavIndexProvider.notifier).state = 1;
+                },
+                child: const Text('View All', style: TextStyle(fontSize: 12)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ...topApps.map((app) => _buildAppRow(app)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAppRow(AppInfo app) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            ref.read(selectedAppProvider.notifier).state = app;
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => AppDetailScreen(app: app)),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.divider),
+            ),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    color: AppColors.surfaceVariant,
+                    child:
+                        app.iconPath != null &&
+                            app.iconPath!.isNotEmpty &&
+                            app.iconPath!.startsWith('/')
+                        ? Image.file(
+                            File(app.iconPath!),
+                            width: 40,
+                            height: 40,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => const Icon(
+                              Icons.apps_rounded,
+                              size: 20,
+                              color: AppColors.primary,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.apps_rounded,
+                            size: 20,
+                            color: AppColors.primary,
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        app.appName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${app.dangerousPermissionCount} sensitive permissions · ${app.installSource}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textLight,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                RiskBadge(riskLevel: app.riskLevel, compact: true),
+                const SizedBox(width: 8),
+                Text(
+                  '${app.privacyScore}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Permission Breakdown ────────────────────────────────────────
+
+  Widget _buildPermissionBreakdown(DashboardOverview overview) {
+    if (overview.permissionUsage.isEmpty) return const SizedBox.shrink();
+
+    final sorted = overview.permissionUsage.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final topPerms = sorted.take(6).toList();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Sensitive Permission Exposure',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: topPerms.map((entry) {
+              final info = permissionDatabase[entry.key];
+              final name = info?.displayName ?? entry.key.split('.').last;
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.riskDangerousContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.shield_rounded,
+                      size: 13,
+                      color: AppColors.riskDangerous,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      '$name · ${entry.value}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.riskDangerous,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Tracker Detection Breakdown ─────────────────────────────────
+
   Widget _buildTrackerBreakdown(DashboardOverview overview) {
     if (overview.trackerUsage.isEmpty) return const SizedBox.shrink();
     final sorted = overview.trackerUsage.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    final topTrackers = sorted.take(5).toList();
+    final topTrackers = sorted.take(4).toList();
     final maxCount = topTrackers.first.value;
 
     return Padding(
@@ -600,7 +759,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Tracker Detection',
+              'Trackers & Analytics SDKs',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
@@ -609,7 +768,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
             const SizedBox(height: 12),
             ...topTrackers.map((entry) {
-              final value = entry.value / maxCount;
+              final value = maxCount > 0 ? entry.value / maxCount : 0.0;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Column(
@@ -630,11 +789,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ),
                         ),
                         Text(
-                          '${entry.value}',
+                          '${entry.value} apps',
                           style: const TextStyle(
                             color: AppColors.textLight,
                             fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -644,7 +803,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
                         value: value,
-                        minHeight: 7,
+                        minHeight: 6,
                         backgroundColor: AppColors.surfaceVariant,
                         valueColor: const AlwaysStoppedAnimation(
                           AppColors.secondary,
@@ -660,6 +819,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ),
     );
   }
+
+  // ── Recent Permission Changes ───────────────────────────────────
 
   Widget _buildRecentPermissionChanges(DashboardOverview overview) {
     if (overview.recentChanges.isEmpty) return const SizedBox.shrink();
@@ -689,9 +850,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               final added = event.addedPermissions
                   .take(2)
                   .map(
-                    (permission) =>
-                        permissionDatabase[permission]?.displayName ??
-                        permission.split('.').last,
+                    (p) =>
+                        permissionDatabase[p]?.displayName ??
+                        p.split('.').last.replaceAll('_', ' '),
                   )
                   .join(', ');
               return Padding(
@@ -742,530 +903,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  // ── Permission Breakdown ────────────────────────────────────────
-
-  Widget _buildPermissionBreakdown(DashboardOverview overview) {
-    if (overview.permissionUsage.isEmpty) return const SizedBox(height: 8);
-
-    final sorted = overview.permissionUsage.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final topPerms = sorted.take(6).toList();
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Top Dangerous Permissions',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textDark,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: topPerms.map((entry) {
-              final info = permissionDatabase[entry.key];
-              final name = info?.displayName ?? entry.key.split('.').last;
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.riskDangerousContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.shield_rounded,
-                      size: 13,
-                      color: AppColors.riskDangerous,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$name  ·  ${entry.value}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.riskDangerous,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Search Bar ──────────────────────────────────────────────────
-
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-      child: SearchBar(
-        controller: _searchController,
-        onChanged: (value) {
-          ref.read(dashboardSearchQueryProvider.notifier).state = value;
-        },
-        leading: const Padding(
-          padding: EdgeInsets.only(left: 4),
-          child: Icon(
-            Icons.search_rounded,
-            color: AppColors.textLight,
-            size: 20,
-          ),
-        ),
-        hintText: 'Search apps...',
-      ),
-    );
-  }
-
-  // ── App Type Tabs ───────────────────────────────────────────────
-
-  Widget _buildAppTypeTabs(DashboardOverview overview, AppType currentTab) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: SizedBox(
-        width: double.infinity,
-        child: SegmentedButton<AppType>(
-          segments: [
-            ButtonSegment(
-              value: AppType.userApps,
-              label: Text('User (${overview.userApps})'),
-            ),
-            ButtonSegment(
-              value: AppType.systemApps,
-              label: Text('System (${overview.systemApps})'),
-            ),
-            ButtonSegment(
-              value: AppType.unknownSource,
-              label: Text('Unknown (${overview.unknownSourceApps})'),
-            ),
-          ],
-          selected: {currentTab},
-          onSelectionChanged: (value) {
-            ref.read(dashboardTabProvider.notifier).state = value.first;
-          },
-        ),
-      ),
-    );
-  }
-
-  // ── Sort & Filter Bar ───────────────────────────────────────────
-
-  Widget _buildSortFilterBar(
-    DashboardSortOption currentSort,
-    RiskLevel? riskFilter,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceVariant,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<DashboardSortOption>(
-                  isExpanded: true,
-                  value: currentSort,
-                  icon: const Icon(
-                    Icons.sort_rounded,
-                    size: 16,
-                    color: AppColors.textLight,
-                  ),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textDark,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  items: const [
-                    DropdownMenuItem(
-                      value: DashboardSortOption.risk,
-                      child: Text('Risk Level'),
-                    ),
-                    DropdownMenuItem(
-                      value: DashboardSortOption.name,
-                      child: Text('Name'),
-                    ),
-                    DropdownMenuItem(
-                      value: DashboardSortOption.permissionCount,
-                      child: Text('Permissions'),
-                    ),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) {
-                      ref.read(dashboardSortOptionProvider.notifier).state = v;
-                    }
-                  },
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          _filterChip(
-            'All',
-            riskFilter == null,
-            () => ref.read(dashboardRiskFilterProvider.notifier).state = null,
-          ),
-          const SizedBox(width: 6),
-          _filterChip(
-            'Risky',
-            riskFilter == RiskLevel.high,
-            () => ref.read(dashboardRiskFilterProvider.notifier).state =
-                riskFilter == RiskLevel.high ? null : RiskLevel.high,
-            activeColor: AppColors.riskDangerous,
-          ),
-          const SizedBox(width: 6),
-          _filterChip(
-            'Critical',
-            riskFilter == RiskLevel.critical,
-            () => ref.read(dashboardRiskFilterProvider.notifier).state =
-                riskFilter == RiskLevel.critical ? null : RiskLevel.critical,
-            activeColor: AppColors.riskCritical,
-          ),
-          const SizedBox(width: 6),
-          _filterChip(
-            'Safe',
-            riskFilter == RiskLevel.safe,
-            () => ref.read(dashboardRiskFilterProvider.notifier).state =
-                riskFilter == RiskLevel.safe ? null : RiskLevel.safe,
-            activeColor: AppColors.riskSafe,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _filterChip(
-    String label,
-    bool selected,
-    VoidCallback onTap, {
-    Color? activeColor,
-  }) {
-    final color = activeColor ?? AppColors.primary;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected
-              ? color.withValues(alpha: 0.12)
-              : AppColors.surfaceVariant,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: selected ? color : Colors.transparent),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: selected ? color : AppColors.textLight,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── App Tile ────────────────────────────────────────────────────
-
-  Widget _buildAppTile(AppInfo app) {
-    final topPerms = app.permissions
-        .where((p) => dangerousPermissions.contains(p))
-        .take(3)
-        .map((p) {
-          final info = permissionDatabase[p];
-          return info?.displayName ?? p.split('.').last;
-        })
-        .toList();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Material(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(14),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {
-            ref.read(selectedAppProvider.notifier).state = app;
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => AppDetailScreen(app: app)),
-            );
-          },
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.divider),
-            ),
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    color: AppColors.surfaceVariant,
-                    child:
-                        app.iconPath != null &&
-                            app.iconPath!.isNotEmpty &&
-                            app.iconPath!.startsWith('/')
-                        ? Image.file(
-                            File(app.iconPath!),
-                            width: 44,
-                            height: 44,
-                            fit: BoxFit.cover,
-                            filterQuality: FilterQuality.medium,
-                            cacheWidth: 88,
-                            errorBuilder: (_, _, _) => const Icon(
-                              Icons.apps_rounded,
-                              size: 24,
-                              color: AppColors.primary,
-                            ),
-                          )
-                        : const Icon(
-                            Icons.apps_rounded,
-                            size: 24,
-                            color: AppColors.primary,
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              app.appName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textDark,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          RiskBadge(riskLevel: app.riskLevel, compact: true),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          _sourceTag(app.installSource),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${app.dangerousPermissionCount} dangerous',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: app.dangerousPermissionCount > 0
-                                  ? AppColors.riskDangerous
-                                  : AppColors.textLight,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '${app.permissions.length} perms',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppColors.textLight,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (topPerms.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 4,
-                          runSpacing: 4,
-                          children: topPerms
-                              .map(
-                                (name) => Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.riskDangerousContainer,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    name,
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: AppColors.riskDangerous,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 4),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppColors.textLight,
-                  size: 18,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _sourceTag(String source) {
-    final Color color;
-    switch (source) {
-      case 'Play Store':
-      case 'Galaxy Store':
-        color = AppColors.riskSafe;
-        break;
-      case 'System':
-        color = AppColors.primary;
-        break;
-      default:
-        color = AppColors.riskMedium;
-        break;
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        source,
-        style: TextStyle(
-          fontSize: 10,
-          color: color,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
-  // ── Skeleton ────────────────────────────────────────────────────
+  // ── Skeleton Placeholder ────────────────────────────────────────
 
   Widget _buildSkeleton() {
-    return CustomScrollView(
-      slivers: [SliverToBoxAdapter(child: _DashboardSkeleton())],
-    );
-  }
-}
-
-// ── Skeleton Animation ──────────────────────────────────────────────
-
-class _DashboardSkeleton extends StatefulWidget {
-  @override
-  State<_DashboardSkeleton> createState() => _DashboardSkeletonState();
-}
-
-class _DashboardSkeletonState extends State<_DashboardSkeleton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Widget _bone(double width, double height, {double radius = 14}) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (_, _) => Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: AppColors.divider.withValues(
-            alpha: 0.3 + _controller.value * 0.4,
-          ),
-          borderRadius: BorderRadius.circular(radius),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _bone(double.infinity, 200, radius: 20),
-          const SizedBox(height: 16),
-          Row(
-            children: List.generate(
-              3,
-              (_) => Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: _bone(double.infinity, 80),
-                ),
+    return Scaffold(
+      appBar: AppBar(title: const Text('Security Dashboard')),
+      body: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: AppColors.primary),
+            SizedBox(height: 16),
+            Text(
+              'Loading security metrics...',
+              style: TextStyle(
+                color: AppColors.textLight,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          ),
-          const SizedBox(height: 20),
-          Align(alignment: Alignment.centerLeft, child: _bone(180, 16)),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _bone(100, 30),
-              const SizedBox(width: 8),
-              _bone(80, 30),
-              const SizedBox(width: 8),
-              _bone(90, 30),
-            ],
-          ),
-          const SizedBox(height: 20),
-          _bone(double.infinity, 48),
-          const SizedBox(height: 16),
-          _bone(double.infinity, 40),
-          const SizedBox(height: 16),
-          ...List.generate(
-            5,
-            (_) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _bone(double.infinity, 76),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

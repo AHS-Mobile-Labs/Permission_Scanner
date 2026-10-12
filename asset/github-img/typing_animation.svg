@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 40" width="520" height="40">
+  <style>
+    .type-text {
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      fill: #0E7B72;
+      text-anchor: middle;
+      dominant-baseline: central;
+    }
+    @keyframes cycleText {
+      0%, 20% { opacity: 1; }
+      25%, 100% { opacity: 0; }
+    }
+    .line-1 { animation: cycleText 12s infinite 0s; }
+    .line-2 { animation: cycleText 12s infinite 3s; }
+    .line-3 { animation: cycleText 12s infinite 6s; }
+    .line-4 { animation: cycleText 12s infinite 9s; }
+  </style>
+  <text class="type-text line-1" x="50%" y="50%">🛡️ Android Permission &amp; Privacy Scanner</text>
+  <text class="type-text line-2" x="50%" y="50%">⚡ Real-Time App Risk Classification</text>
+  <text class="type-text line-3" x="50%" y="50%">🔍 Pre-Install APK Vulnerability Audit</text>
+  <text class="type-text line-4" x="50%" y="50%">🔒 100% On-Device Inspection • Zero Data Collected</text>
+</svg>

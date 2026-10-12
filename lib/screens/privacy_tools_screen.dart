@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_scanner/models/app_info.dart';
 import 'package:permission_scanner/screens/about_screen.dart';
 import 'package:permission_scanner/screens/apk_scanner_screen.dart';
+import 'package:permission_scanner/screens/app_compare_screen.dart';
 import 'package:permission_scanner/screens/permission_info_screen.dart';
 import 'package:permission_scanner/screens/privacy_policy_screen.dart';
 import 'package:permission_scanner/screens/privacy_timeline_screen.dart';
@@ -24,6 +25,7 @@ class PrivacyToolsScreen extends ConsumerWidget {
     final changesAsync = ref.watch(permissionChangeEventsProvider);
 
     return appsAsync.when(
+      skipLoadingOnReload: true,
       data: (apps) {
         final changes = changesAsync.valueOrNull ?? [];
         return ListView(
@@ -37,6 +39,16 @@ class PrivacyToolsScreen extends ConsumerWidget {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const ApkScannerScreen()),
+              ),
+            ),
+            _toolTile(
+              context,
+              icon: Icons.compare_arrows_rounded,
+              title: 'Compare Apps',
+              subtitle: 'Side-by-side privacy risk and permission comparison',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AppCompareScreen()),
               ),
             ),
             _toolTile(
@@ -222,10 +234,10 @@ class PrivacyToolsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _trustRow('Open-source status', 'Public repository available'),
-          _trustRow('F-Droid availability', 'Not verified in this build'),
-          _trustRow('Privacy policy', 'Bundled policy detected'),
-          _trustRow('Developer trust score', '82/100'),
+          _trustRow('Analysis architecture', '100% on-device offline scan'),
+          _trustRow('Network telemetry', 'Zero analytics or user tracking'),
+          _trustRow('Open-source license', 'MIT License'),
+          _trustRow('Privacy policy', 'Bundled offline policy'),
           const SizedBox(height: 12),
           Wrap(
             spacing: 10,

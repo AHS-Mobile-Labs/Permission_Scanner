@@ -81,7 +81,7 @@ class _ApkScannerScreenState extends State<ApkScannerScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Analyze permissions, trackers, packers, overlays, background behavior, and spyware indicators without installing the APK.',
+                  'Analyze declared permissions, tracker signatures, bytecode packing, overlays, and background behavior heuristics before installing an APK.',
                   style: TextStyle(
                     color: AppColors.textLight,
                     fontSize: 12,
