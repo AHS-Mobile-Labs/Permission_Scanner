@@ -22,10 +22,31 @@
 
 ---
 
+## Download
+
+Get Permission Scanner directly from the Google Play Store or download the latest standalone APK release from GitHub:
+
+<p align="center">
+  <a href="https://play.google.com/store/apps/details?id=com.ahsmobilelabs.permissionScanner.opensoucre">
+    <img src="asset/github-img/badge_google_play.png" height="58" alt="Get it on Google Play" />
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://github.com/AHS-Mobile-Labs/Permission_Scanner/releases">
+    <img src="asset/github-img/badge_github.png" height="58" alt="Get it on GitHub" />
+  </a>
+</p>
+
+| Platform / Source | Link | Description |
+|---|---|---|
+| **Google Play** | [Google Play Store](https://play.google.com/store/apps/details?id=com.ahsmobilelabs.permissionScanner.opensoucre) | Official Play Store release with automatic updates |
+| **GitHub Releases** | [GitHub Releases](https://github.com/AHS-Mobile-Labs/Permission_Scanner/releases) | Standalone APK download for sideloading & direct install |
+
+---
+
 ## App Preview
 
 <p align="center">
-  <img src="asset/github-img/permission_scanner_demo.gif" width="360" alt="Permission Scanner Animated Walkthrough" />
+  <video src="asset/github-img/brag.mp4" width="360" controls autoplay loop muted></video>
 </p>
 
 ## Overview
@@ -50,14 +71,14 @@ The app is designed to be transparent: scanning happens through native Android A
 ## Screenshots
 
 <p align="center">
-  <img src="asset/github-img/%233/Screenshot_20261012_224847.jpg" width="180" alt="Security Dashboard" />
-  <img src="asset/github-img/%233/Screenshot_20261012_224858.jpg" width="180" alt="Installed Apps" />
-  <img src="asset/github-img/%233/Screenshot_20261012_224904.jpg" width="180" alt="Privacy Tools" />
-  <img src="asset/github-img/%233/Screenshot_20261012_225022.jpg" width="180" alt="Compare Apps" />
-  <img src="asset/github-img/%233/Screenshot_20261012_225031.jpg" width="180" alt="App Details" />
-  <img src="asset/github-img/%233/Screenshot_20261012_225043.jpg" width="180" alt="Permission Library" />
-  <img src="asset/github-img/%233/Screenshot_20261012_225048.jpg" width="180" alt="Privacy Timeline" />
-  <img src="asset/github-img/%233/Screenshot_20261012_225140.jpg" width="180" alt="App Intelligence" />
+  <img src="asset/github-img/%234/01_security_dashboard.png" width="180" alt="Security Dashboard" />
+  <img src="asset/github-img/%234/02_installed_apps.png" width="180" alt="Installed Apps" />
+  <img src="asset/github-img/%234/03_privacy_tools.png" width="180" alt="Privacy Tools" />
+  <img src="asset/github-img/%234/04_compare_apps.png" width="180" alt="Compare Apps" />
+  <img src="asset/github-img/%234/05_app_details.png" width="180" alt="App Details" />
+  <img src="asset/github-img/%234/06_permission_library.png" width="180" alt="Permission Library" />
+  <img src="asset/github-img/%234/07_privacy_timeline.png" width="180" alt="Privacy Timeline" />
+  <img src="asset/github-img/%234/08_app_intelligence.png" width="180" alt="App Intelligence" />
 </p>
 
 ## Tech Stack
