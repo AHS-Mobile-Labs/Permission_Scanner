@@ -45,6 +45,7 @@ You retain complete ownership and control over your data:
 
 8. CONTACT
 For questions, bug reports, or privacy inquiries:
+• Email: ahsmobilelabs@gmail.com
 • GitHub: https://github.com/AHS-Mobile-Labs/Permission_Scanner
 • Issues: https://github.com/AHS-Mobile-Labs/Permission_Scanner/issues
 
