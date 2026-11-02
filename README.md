@@ -46,7 +46,11 @@ Get Permission Scanner directly from the Google Play Store or download the lates
 ## App Preview
 
 <p align="center">
-  <video src="asset/github-img/brag.mp4" width="360" controls autoplay loop muted></video>
+  <a href="https://www.youtube.com/watch?v=1XB9thSJrzg">
+    <img src="https://img.youtube.com/vi/1XB9thSJrzg/maxresdefault.jpg"
+         width="560"
+         alt="Watch Permission Scanner App Preview on YouTube">
+  </a>
 </p>
 
 ## Overview
